@@ -1,202 +1,221 @@
-# Axis
-### Open-Source Brain-Computer Interface for Robotic Control
+AXIS - Open-Source Brain-Computer Interface for Robotic Control
+================================================================
 
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
-[![ESP-IDF](https://img.shields.io/badge/ESP--IDF-v5.x-green)](https://docs.espressif.com/projects/esp-idf/)
-[![NeuroSky TGAM](https://img.shields.io/badge/Sensor-NeuroSky_TGAM-orange)](https://developer.neurosky.com/)
-[![PlatformIO](https://img.shields.io/badge/PlatformIO-compatible-purple)](https://platformio.org/)
----
+License: GPL v3 | Framework: ESP-IDF v5.x | Sensor: NeuroSky TGAM
+PlatformIO compatible
 
-Axis is a **free and open-source** non-invasive brain-computer interface (BCI) that reads human EEG signals via a NeuroSky TGAM module and translates them into **real-time servo motor commands** for a robotic hand. Built for the ESP32 microcontroller.
+Axis is a free and open-source non-invasive brain-computer interface
+(BCI) that reads human EEG signals via a NeuroSky TGAM module and
+translates them into real-time servo motor commands for a robotic
+hand. Built for the ESP32 microcontroller.
 
-## Why Axis?
 
-Two primary use cases:
+Why Axis?
+---------
 
-1. **Remote Hazardous Operations** — Deploy a robotic limb into dangerous environments (radiation, toxic gas, deep sea) and control it with your natural brain signals from a safe distance.
+1. Remote Hazardous Operations - Deploy a robotic limb into dangerous
+   environments (radiation, toxic gas, deep sea) and control it with
+   your natural brain signals from a safe distance.
 
-2. **Humanoid Robot Training** — Current humanoids move with pre-programmed motor sequences. Axis captures *real human movement intent* via EEG, generating natural motion data for training robots to move like humans — solving the "faulty movement" problem.
+2. Humanoid Robot Training - Current humanoids move with pre-programmed
+   motor sequences. Axis captures real human movement intent via EEG,
+   generating natural motion data for training robots to move like
+   humans - solving the faulty movement problem.
 
-## Features
 
-- **Real-time EEG Processing** — Attention, meditation, blink, and 8 frequency bands from TGAM
-- **5-DOF Robotic Hand Control** — Individual finger control via servo motors
-- **Multiple Control Modes** — Direct grip, finger selection, pre-programmed gestures
-- **Remote Operation** — WiFi AP + WebSocket with live browser dashboard
-- **ML Data Pipeline** — SD card CSV logging for training machine learning models
-- **Pre-programmed Gestures** — Fist, point, pinch, peace, OK sign, wave
-- **Safety Systems** — Signal loss protection, poor quality timeout, emergency stop
-- **Interactive CLI** — Full command interface over USB serial
-- **Smooth Motion** — S-curve motion planner for natural robot movement
-- **Persistent Configuration** — All settings saved to NVS flash
+Features
+--------
+- Real-time EEG Processing - Attention, meditation, blink, 8 bands
+- 5-DOF Robotic Hand Control - Individual finger control via servos
+- Multiple Control Modes - Direct grip, finger select, gestures
+- Remote Operation - WiFi AP + WebSocket with live browser dashboard
+- ML Data Pipeline - SD card CSV logging for training ML models
+- Pre-programmed Gestures - Fist, point, pinch, peace, OK, wave
+- Safety Systems - Signal loss protection, timeout, emergency stop
+- Interactive CLI - Full command interface over USB serial
+- Smooth Motion - S-curve motion planner for natural movement
+- Persistent Configuration - All settings saved to NVS flash
 
-## Hardware Requirements
 
-| Component | Est. Cost | Notes |
-|-----------|-----------|-------|
-| ESP32 Dev Board | $5-10 | ESP32-WROOM-32 |
-| NeuroSky TGAM Module | $15-25 | Aliexpress / Amazon |
-| EEG Headset | $5-10 | Dry electrodes, clip ear |
-| SG90 Servo ×5 | $10-15 | Robot fingers |
-| 5V 2A PSU | $5 | Servo power |
-| SD Card Module | $3 | SPI mode (optional) |
-| **Total** | **$43-68** | |
+Hardware Requirements
+---------------------
 
-Full wiring diagram: [docs/hardware_setup.md](docs/hardware_setup.md)
+  Component              Cost        Notes
+  ESP32 Dev Board        $5-10      ESP32-WROOM-32
+  NeuroSky TGAM Module   $15-25     Aliexpress / Amazon
+  EEG Headset            $5-10      Dry electrodes, clip ear
+  SG90 Servo x5          $10-15     Robot fingers
+  5V 2A PSU              $5         Servo power
+  SD Card Module         $3         SPI mode (optional)
+  Total                  $43-68
 
-## Quick Start
+Full wiring diagram: docs/hardware_setup.md
 
-### With ESP-IDF
 
-```bash
-git clone https://github.com/Axon-Co/axis.git
-cd axis
-idf.py set-target esp32
-idf.py menuconfig    # (optional) configure pins, WiFi, thresholds
-idf.py build
-idf.py -p /dev/ttyUSB0 flash monitor
-```
+Quick Start
+-----------
 
-### With PlatformIO
+With ESP-IDF:
 
-```bash
-pio run -t menuconfig
-pio run -t upload
-pio device monitor
-```
+  git clone https://github.com/Axon-Co/axis.git
+  cd axis
+  idf.py set-target esp32
+  idf.py menuconfig
+  idf.py build
+  idf.py -p /dev/ttyUSB0 flash monitor
 
-### Connect and Calibrate
+With PlatformIO:
 
-1. Put on EEG headset (forehead sensor + ear clip)
-2. Open serial monitor — type `calibrate` to see live EEG values
-3. Type `mode 0` for grip control
-4. Open a browser to `http://192.168.4.1` for the Web dashboard
+  pio run -t menuconfig
+  pio run -t upload
+  pio device monitor
 
-## Architecture
+Connect and Calibrate:
 
-```
-TGAM EEG → UART → eeg_reader → signal_processor → command_interpreter
-                                                         ↓
-WiFi Client ← wifi_control ← ─ ─ ─ ─ ─ ─ ─ ─ → servo_controller
-                                                         ↓
-CLI ← serial_cli ← ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ → motion_planner
-                                                         ↓
-SD Card ← data_logger ← ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ → 5× Servo Motors
-                                                         ↓
-NVS ← nvs_config ← ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ → safety_monitor
-```
+  1. Put on EEG headset (forehead sensor + ear clip)
+  2. Open serial monitor - type "calibrate" to see live EEG
+  3. Type "mode 0" for grip control
+  4. Open browser to http://192.168.4.1 for Web dashboard
 
-## Modules (12 total, ~3000 lines)
 
-| Module | Description |
-|--------|-------------|
-| `tgam_protocol` | TGAM ThinkGear packet parser (state machine) |
-| `eeg_reader` | UART2 EEG data acquisition task |
-| `signal_processor` | Moving average filter, adaptive thresholds, blink patterns |
-| `servo_controller` | LEDC PWM 5-channel servo control |
-| `motion_planner` | S-curve smooth interpolation |
-| `command_interpreter` | Brain signal → servo action mapping (4 modes) |
-| `gesture_player` | 6 pre-programmed hand gestures |
-| `nvs_config` | Persistent NVS configuration storage |
-| `serial_cli` | Interactive USB serial command interface |
-| `wifi_control` | WiFi AP + WebSocket server + browser UI |
-| `data_logger` | SD card CSV logging (ML training data) |
-| `safety_monitor` | Watchdog, signal loss detection, emergency stop |
+Architecture
+------------
 
-## CLI Commands
+  TGAM EEG -> UART -> eeg_reader -> signal_processor
+                                        |
+  WiFi Client <- wifi_control           v
+  CLI <- serial_cli             command_interpreter
+                                        |
+  SD Card <- data_logger                v
+                                 servo_controller
+                                        |
+  NVS <- nvs_config              motion_planner
+                                        |
+                                 safety_monitor
+                                        |
+                              5x Servo Motors
 
-```
-help         List all commands
-mode <0-3>   GRIP | FINGER_SELECT | SEQUENCE | CALIBRATE
-status       Show system status
-config       Show current configuration
-config set <key> <val>  Change a parameter
-servo <id> <angle>  Direct servo control
-gesture <id> Play a gesture (0=fist, 1=open, ...)
-log start|stop   SD card logging toggle
-safety stop|release  Emergency stop
-reboot       Restart ESP32
-```
 
-## WebSocket API
+Modules (12 total, ~3000 lines)
+-------------------------------
 
-Connect to `ws://192.168.4.1/ws` for real-time EEG data:
+  tgam_protocol      TGAM ThinkGear packet parser (state machine)
+  eeg_reader         UART2 EEG data acquisition task
+  signal_processor   Moving average filter, adaptive thresholds
+  servo_controller   LEDC PWM 5-channel servo control
+  motion_planner     S-curve smooth interpolation
+  command_interpreter Brain signal -> servo action mapping (4 modes)
+  gesture_player    6 pre-programmed hand gestures
+  nvs_config        Persistent NVS configuration storage
+  serial_cli        Interactive USB serial command interface
+  wifi_control      WiFi AP + WebSocket server + browser UI
+  data_logger       SD card CSV logging (ML training data)
+  safety_monitor    Watchdog, signal loss, emergency stop
 
-```json
-// Server → Client (10Hz)
-{"type":"eeg","att":65,"med":42,"blink":0,"signal":0,
- "servos":[30,45,50,40,35],"mode":0}
 
-// Client → Server
-{"cmd":"mode","value":1}
-{"cmd":"servo","id":2,"angle":90}
-{"cmd":"gesture","id":0}
-{"cmd":"config","key":"smoothing_factor","value":60}
-```
+CLI Commands
+------------
 
-## ML Training Pipeline
+  help              List all commands
+  mode <0-3>        GRIP / FINGER_SELECT / SEQUENCE / CALIBRATE
+  status            Show system status
+  config            Show current configuration
+  config set <key> <val>  Change a parameter
+  servo <id> <angle>  Direct servo control
+  gesture <id>      Play a gesture (0=fist, 1=open, ...)
+  log start|stop    SD card logging toggle
+  safety stop|release  Emergency stop
+  reboot            Restart ESP32
 
-1. Connect SD card to ESP32
-2. Send `log start` via CLI or WebSocket
-3. Think naturally while performing physical hand movements
-4. Send `log stop` — CSV file saved to SD card
-5. Run `python tools/analyze.py /sdcard/eeg_*.csv` for analysis
-6. Use the CSV data to train TensorFlow / scikit-learn models
 
-CSV fields: `timestamp,attention,meditation,blink,raw_wave,delta,theta,low_alpha,high_alpha,low_beta,high_beta,low_gamma,high_gamma,servo0..servo4`
+WebSocket API
+-------------
 
-## Development Tools
+Connect to ws://192.168.4.1/ws for real-time EEG data:
 
-```bash
-# Simulate EEG data over USB (for testing without TGAM hardware)
-python tools/simulate_eeg.py /dev/ttyUSB0
+  Server -> Client (10Hz):
+    {"type":"eeg","att":65,"med":42,"blink":0,"signal":0,
+     "servos":[30,45,50,40,35],"mode":0}
 
-# Analyze logged CSV data
-python tools/analyze.py /sdcard/eeg_log.csv
+  Client -> Server:
+    {"cmd":"mode","value":1}
+    {"cmd":"servo","id":2,"angle":90}
+    {"cmd":"gesture","id":0}
+    {"cmd":"config","key":"smoothing_factor","value":60}
 
-# Build docs
-pip install mkdocs && mkdocs serve
-```
 
-## Roadmap
+ML Training Pipeline
+--------------------
 
-| Phase | Status | Features |
-|-------|--------|----------|
-| P1-P2 | ✅ Done | Core BCI, advanced control |
-| P3-P6 | ✅ Done | Persistence, WiFi, data logging, safety, gestures |
-| P7 | 🔜 Planned | Adaptive ML thresholds, noise cancellation, artifact rejection |
-| P8 | 🔜 Planned | ESP-NOW, ESP32-CAM video, haptic feedback |
-| P9 | 🔜 Planned | On-device TFLite inference, gesture recognition |
-| P10 | 🔜 Planned | ROS2, inverse kinematics, full arm control |
+  1. Connect SD card to ESP32
+  2. Send "log start" via CLI or WebSocket
+  3. Think naturally while performing physical hand movements
+  4. Send "log stop" - CSV file saved to SD card
+  5. Run: python tools/analyze.py /sdcard/eeg_*.csv
+  6. Use CSV data to train TensorFlow / scikit-learn models
 
-Full roadmap: [TASKS.md](TASKS.md)
+  CSV fields: timestamp,attention,meditation,blink,raw_wave,
+              delta,theta,low_alpha,high_alpha,low_beta,high_beta,
+              low_gamma,high_gamma,servo0..servo4
 
-## License
+
+Development Tools
+-----------------
+
+  # Simulate EEG without TGAM hardware:
+  python tools/simulate_eeg.py /dev/ttyUSB0
+
+  # Offline simulation (no hardware needed):
+  python tools/simulate_axis.py
+
+  # Analyze logged CSV data:
+  python tools/analyze.py /sdcard/eeg_log.csv
+
+
+Roadmap
+-------
+
+  P1-P2  Done  Core BCI, advanced control
+  P3-P6  Done  Persistence, WiFi, logging, safety, gestures
+  P7     Planned  Adaptive ML thresholds, noise cancellation
+  P8     Planned  ESP-NOW, ESP32-CAM video, haptic feedback
+  P9     Planned  On-device TFLite inference, gesture recognition
+  P10    Planned  ROS2, inverse kinematics, full arm control
+
+Full roadmap: TASKS.md
+
+
+License
+-------
 
 Copyright (C) 2026 Axon-Co
 
 This program is free software: you can redistribute it and/or modify
-it under the terms of the **GNU General Public License v3** as published
+it under the terms of the GNU General Public License v3 as published
 by the Free Software Foundation.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
-See [LICENSE](LICENSE) for details.
+See LICENSE file for details.
 
-## Contributing
 
-We welcome contributions! See [TASKS.md](TASKS.md) for open tasks:
+Contributing
+------------
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/my-feature`
-3. Commit your changes
-4. Push and open a Pull Request
+See TASKS.md for open tasks. Contributions welcome:
 
-## Community
+  1. Fork the repository
+  2. Create a feature branch: git checkout -b feature/my-feature
+  3. Commit your changes
+  4. Push and open a Pull Request
 
-- GitHub Issues: [github.com/Axon-Co/axis/issues](https://github.com/Axon-Co/axis/issues)
-- Discussions: [github.com/Axon-Co/axis/discussions](https://github.com/Axon-Co/axis/discussions)
 
-Built with ❤️ for open-source BCI research.
+Community
+---------
+
+  GitHub Issues: https://github.com/Axon-Co/axis/issues
+  Discussions:   https://github.com/Axon-Co/axis/discussions
+
+Built for open-source BCI research.
