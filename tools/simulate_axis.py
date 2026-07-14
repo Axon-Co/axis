@@ -287,7 +287,7 @@ def render_terminal(eeg, hand, state, t, blink_flag, log_count):
     for i in range(5):
         filled = int(hand.angles[i] / 180 * 10)
         bar = '█' * filled + '░' * (10 - filled)
-        servo_bar += f"  {SERVO_NAMES[i][0]}: {bar} {hand.angles[i]:3d}°"
+        servo_bar += f"  {SERVO_NAMES[i][0]}: {bar} {int(hand.angles[i]):3d}°"
 
     blink_mark = ' 👁 BLINK' if blink_flag else '      '
     state_line = f"🧠 [{state:12s}] Att={eeg['attention']:3d}  Med={eeg['meditation']:3d}{blink_mark}"
