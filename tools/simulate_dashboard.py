@@ -214,6 +214,7 @@ class Handler(BaseHTTPRequestHandler):
 
         elif path == '/api/latest':
             d = sim.history[-1] if sim.history else {}
+            d['state'] = sim.state
             s = STATES.get(sim.state, {})
             d['state_desc'] = s.get('desc', '')
             d['uptime'] = round(sim.t, 1)
@@ -546,7 +547,6 @@ async function poll() {
     const r = await fetch('/api/latest');
     const data = await r.json();
     document.getElementById('stateBadge').textContent = data.state || '?';
-    document.getElementById('stateSelect').value = data.state || 'relaxed';
     document.getElementById('timeDisplay').textContent = (data.t || 0).toFixed(1) + 's';
     updateMetrics(data);
     updateServos(data);
@@ -559,8 +559,10 @@ async function poll() {
   } catch(e) {}
 }
 
-async function setState(name) {
-  await fetch('/api/state?name=' + name);
+function setState(name) {
+  document.getElementById('stateSelect').value = name;
+  document.getElementById('stateBadge').textContent = name;
+  fetch('/api/state?name=' + name);
 }
 
 function setAutoCycle(secs) {
