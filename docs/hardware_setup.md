@@ -1,4 +1,4 @@
-# EspBrain - Hardware Quraşdırma
+# Axis - Hardware Quraşdırma
 
 ## Tələb olunan Komponentlər
 

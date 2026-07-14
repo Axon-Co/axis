@@ -1,4 +1,4 @@
-# EspBrain - Kalibrasiya Bələdçisi
+# Axis - Kalibrasiya Bələdçisi
 
 ## 1. EEG Sensorunun Qurulması
 

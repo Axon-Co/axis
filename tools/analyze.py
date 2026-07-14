@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-EspBrain EEG Data Analyzer
-Analyze CSV logs from the EspBrain data logger for ML training.
+Axis EEG Data Analyzer
+Analyze CSV logs from the Axis data logger for ML training.
 
 Usage:
     python tools/analyze.py /sdcard/eeg_log.csv
@@ -146,7 +146,7 @@ def extract_features(rows):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='EspBrain EEG Data Analyzer')
+    parser = argparse.ArgumentParser(description='Axis EEG Data Analyzer')
     parser.add_argument('csv_file', help='Path to CSV log file')
     parser.add_argument('--stats', action='store_true', help='Print statistics')
     parser.add_argument('--plot', action='store_true', help='Plot graphs')

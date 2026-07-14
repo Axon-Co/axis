@@ -23,7 +23,7 @@ static const app_config_t DEFAULT_CONFIG = {
         .invert         = {false, false, false, false, false},
     },
     .wifi = {
-        .ssid     = "EspBrain",
+        .ssid     = "Axis",
         .password = "12345678",
         .channel  = 1,
         .enabled  = true,

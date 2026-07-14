@@ -4,7 +4,7 @@
 #include "servo_controller.h"
 #include "command_interpreter.h"
 
-#define NVS_NAMESPACE "espbrain"
+#define NVS_NAMESPACE "axis"
 #define WIFI_SSID_MAX  32
 #define WIFI_PASS_MAX  64
 

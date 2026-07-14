@@ -1,4 +1,4 @@
-# EspBrain Feature Roadmap & Tasks
+# Axis Feature Roadmap & Tasks
 
 ## Phase 1: Core BCI (✅ Completed)
 

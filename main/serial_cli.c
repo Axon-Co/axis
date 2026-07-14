@@ -20,7 +20,7 @@ static const char *TAG = "CLI";
 #define CLI_UART      UART_NUM_0
 #define CLI_BUF_SIZE  256
 #define CLI_MAX_ARGS  16
-#define CLI_PROMPT    "espbrain> "
+#define CLI_PROMPT    "axis> "
 
 typedef struct {
     char name[24];
@@ -110,7 +110,7 @@ static void cmd_status(int argc, char **argv)
     const char *mode_names[] = {"GRIP", "FINGER_SELECT", "SEQUENCE", "CALIBRATE"};
 
     int m = command_interpreter_get_mode();
-    printf("\n=== EspBrain Status ===\n");
+    printf("\n=== Axis Status ===\n");
     printf("Mode:       %d (%s)\n", m, m >= 0 && m < 4 ? mode_names[m] : "?");
     printf("Speed:      %d\n", cfg->system_speed);
     printf("Logging:    %s (%lu records)\n",
@@ -276,7 +276,7 @@ static void cmd_reboot(int argc, char **argv)
 static void cmd_info(int argc, char **argv)
 {
     (void)argc; (void)argv;
-    printf("\nEspBrain v1.0\n");
+    printf("\nAxis v1.0\n");
     printf("Framework: ESP-IDF\n");
     printf("Target:    ESP32\n");
     printf("Modules:\n");
@@ -322,7 +322,7 @@ static void cli_task(void *pv)
     uint8_t byte;
     int len;
 
-    printf("\nEspBrain BCI System\n");
+    printf("\nAxis BCI System\n");
     printf("Type 'help' for commands\n\n");
 
     while (1) {

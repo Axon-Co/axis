@@ -16,7 +16,7 @@
 #include "wifi_control.h"
 #include "signal_processor.h"
 
-static const char *TAG = "EspBrain";
+static const char *TAG = "Axis";
 
 #define GPIO_SERVO_THUMB GPIO_NUM_18
 #define GPIO_SERVO_INDEX GPIO_NUM_19
@@ -75,7 +75,7 @@ void app_main(void)
         wifi_control_init(cfg->wifi.ssid, cfg->wifi.password, cfg->wifi.channel);
     }
 
-    ESP_LOGI(TAG, "EspBrain v1.0 ready");
+    ESP_LOGI(TAG, "Axis v1.0 ready");
     ESP_LOGI(TAG, "WiFi SSID: %s | Servos: %d | Mode: GRIP",
              cfg->wifi.enabled ? cfg->wifi.ssid : "disabled", SERVO_COUNT);
 

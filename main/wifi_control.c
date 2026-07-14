@@ -173,11 +173,11 @@ static esp_err_t ws_handler(httpd_req_t *req)
 
 static esp_err_t root_handler(httpd_req_t *req)
 {
-    const char *html = "<!DOCTYPE html><html><head><title>EspBrain</title>"
+    const char *html = "<!DOCTYPE html><html><head><title>Axis</title>"
         "<style>body{font-family:monospace;background:#111;color:#0f0;margin:20px}"
         ".val{font-size:24px;font-weight:bold}.bar{height:20px;background:#333;margin:4px 0}"
         ".bar-fill{height:100%;background:#0f0;transition:width .2s}</style></head>"
-        "<body><h1>EspBrain BCI</h1>"
+        "<body><h1>Axis BCI</h1>"
         "<div id='data'></div>"
         "<script>var ws=new WebSocket('ws://'+location.host+'/ws');"
         "ws.onmessage=function(e){var d=JSON.parse(e.data);"

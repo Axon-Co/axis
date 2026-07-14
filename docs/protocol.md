@@ -70,7 +70,7 @@ AA AA        - Sync
 AB           - Checksum (~(0x04+0x50+0x05+0x60))
 ```
 
-## EspBrain Komanda Strukturu
+## Axis Komanda Strukturu
 
 ### Rejimlər
 

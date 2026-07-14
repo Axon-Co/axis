@@ -1,8 +1,8 @@
-# EspBrain System Architecture
+# Axis System Architecture
 
 ## Overview
 
-EspBrain is a non-invasive brain-computer interface (BCI) system that reads human EEG signals via a NeuroSky TGAM module and translates them into servo motor commands for a robotic hand. The system runs on an ESP32 microcontroller.
+Axis is a non-invasive brain-computer interface (BCI) system that reads human EEG signals via a NeuroSky TGAM module and translates them into servo motor commands for a robotic hand. The system runs on an ESP32 microcontroller.
 
 ## System Diagram
 

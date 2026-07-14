@@ -1,24 +1,21 @@
-# EspBrain
+# Axis
 ### Open-Source Brain-Computer Interface for Robotic Control
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![ESP-IDF](https://img.shields.io/badge/ESP--IDF-v5.x-green)](https://docs.espressif.com/projects/esp-idf/)
 [![NeuroSky TGAM](https://img.shields.io/badge/Sensor-NeuroSky_TGAM-orange)](https://developer.neurosky.com/)
 [![PlatformIO](https://img.shields.io/badge/PlatformIO-compatible-purple)](https://platformio.org/)
-
-**Read this in:** [Azerbaijani](README.az.md)
-
 ---
 
-EspBrain is a **free and open-source** non-invasive brain-computer interface (BCI) that reads human EEG signals via a NeuroSky TGAM module and translates them into **real-time servo motor commands** for a robotic hand. Built for the ESP32 microcontroller.
+Axis is a **free and open-source** non-invasive brain-computer interface (BCI) that reads human EEG signals via a NeuroSky TGAM module and translates them into **real-time servo motor commands** for a robotic hand. Built for the ESP32 microcontroller.
 
-## Why EspBrain?
+## Why Axis?
 
 Two primary use cases:
 
 1. **Remote Hazardous Operations** — Deploy a robotic limb into dangerous environments (radiation, toxic gas, deep sea) and control it with your natural brain signals from a safe distance.
 
-2. **Humanoid Robot Training** — Current humanoids move with pre-programmed motor sequences. EspBrain captures *real human movement intent* via EEG, generating natural motion data for training robots to move like humans — solving the "faulty movement" problem.
+2. **Humanoid Robot Training** — Current humanoids move with pre-programmed motor sequences. Axis captures *real human movement intent* via EEG, generating natural motion data for training robots to move like humans — solving the "faulty movement" problem.
 
 ## Features
 
