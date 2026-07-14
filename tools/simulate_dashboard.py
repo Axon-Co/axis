@@ -251,10 +251,8 @@ class Handler(BaseHTTPRequestHandler):
         elif path == '/api/state':
             if params.get('name'):
                 name = params['name'][0]
-                if sim.set_state(name):
-                    self.send_json({'status': 'ok', 'state': name, 'desc': STATES[name]['desc']})
-                else:
-                    self.send_json({'status': 'error', 'message': f'Unknown or current state: {name}'}, 400)
+                ok = sim.set_state(name)
+                self.send_json({'status': 'ok', 'state': name, 'desc': STATES.get(name, {}).get('desc', '')})
             else:
                 self.send_json({'state': sim.state, 'states': list(STATES.keys())})
 
@@ -565,11 +563,11 @@ async function setState(name) {
 function setAutoCycle(secs) {
   if (autoCycleTimer) { clearInterval(autoCycleTimer); autoCycleTimer = null; }
   if (secs > 0) {
-    autoCycleTimer = setInterval(async () => {
-      const r = await fetch('/api/state');
-      const data = await r.json();
-      stateIdx = (stateNames.indexOf(data.state) + 1) % stateNames.length;
-      await setState(stateNames[stateIdx]);
+    autoCycleTimer = setInterval(() => {
+      const sel = document.getElementById('stateSelect');
+      const current = sel.value;
+      stateIdx = (stateNames.indexOf(current) + 1) % stateNames.length;
+      setState(stateNames[stateIdx]);
     }, secs * 1000);
   }
 }
