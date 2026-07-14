@@ -80,6 +80,7 @@ class EEGSimulator:
         if name in STATES and name != self.state:
             self.target = STATES[name].copy()
             self.transition_t = 0.0
+            self.state = name
             return True
         return False
 
@@ -126,7 +127,6 @@ class EEGSimulator:
             self.transition_t += self.dt / self.transition_dur
             if self.transition_t >= 1.0:
                 self.profile = self.target.copy()
-                self.state = [k for k,v in STATES.items() if v == self.target][0] if self.target in STATES.values() else self.state
             else:
                 s = self.transition_t * self.transition_t * (3 - 2 * self.transition_t)
                 for k in self.profile:
