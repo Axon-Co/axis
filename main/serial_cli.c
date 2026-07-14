@@ -6,6 +6,9 @@
 #include "gesture_player.h"
 #include "data_logger.h"
 #include "eeg_reader.h"
+#include "diagnostics.h"
+#include "version.h"
+#include "wifi_control.h"
 #include "esp_log.h"
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
@@ -47,6 +50,10 @@ static void cmd_log(int argc, char **argv);
 static void cmd_safety(int argc, char **argv);
 static void cmd_reboot(int argc, char **argv);
 static void cmd_info(int argc, char **argv);
+static void cmd_diag(int argc, char **argv);
+static void cmd_version(int argc, char **argv);
+static void cmd_clear(int argc, char **argv);
+static void cmd_dashboard(int argc, char **argv);
 
 void serial_cli_register_cmd(const char *name, const char *help,
                               void (*handler)(int, char **))
@@ -73,6 +80,10 @@ static void register_builtins(void)
     serial_cli_register_cmd("safety",  "Safety: safety stop|release",  cmd_safety);
     serial_cli_register_cmd("reboot",  "Restart ESP32",                cmd_reboot);
     serial_cli_register_cmd("info",    "System information",           cmd_info);
+    serial_cli_register_cmd("diag",    "Show diagnostics & statistics",cmd_diag);
+    serial_cli_register_cmd("version", "Show firmware version",        cmd_version);
+    serial_cli_register_cmd("clear",   "Reset diagnostic counters",    cmd_clear);
+    serial_cli_register_cmd("dash",    "Live TUI dashboard (q=quit)", cmd_dashboard);
 }
 
 static void cmd_help(int argc, char **argv)
@@ -108,21 +119,39 @@ static void cmd_status(int argc, char **argv)
     (void)argc; (void)argv;
     const app_config_t *cfg = nvs_config_get();
     const char *mode_names[] = {"GRIP", "FINGER_SELECT", "SEQUENCE", "CALIBRATE"};
+    const diagnostics_t *d = diagnostics_get();
 
     int m = command_interpreter_get_mode();
+
     printf("\n=== Axis Status ===\n");
+    printf("Firmware:   v%s\n", AXIS_VERSION_STR);
+    printf("Uptime:     %llu s\n", d->uptime_ms / 1000);
+    printf("Heap free:  %lu bytes (min: %ld)\n",
+           esp_get_free_heap_size(), d->min_heap_free);
     printf("Mode:       %d (%s)\n", m, m >= 0 && m < 4 ? mode_names[m] : "?");
     printf("Speed:      %d\n", cfg->system_speed);
+    printf("Safe:       %s\n", safety_monitor_is_safe() ? "YES" : "NO (EMERGENCY)");
     printf("Logging:    %s (%lu records)\n",
            data_logger_get_state() == LOGGER_RUNNING ? "ON" : "OFF",
            data_logger_get_count());
-    printf("Safe:       %s\n", safety_monitor_is_safe() ? "YES" : "NO");
-    printf("Servos:     %d\n", SERVO_COUNT);
-
+    printf("WiFi:       %s (clients: %d)\n",
+           cfg->wifi.enabled ? cfg->wifi.ssid : "disabled",
+           wifi_control_client_count());
+    printf("Signal:     quality=%.0f%% errors=%lu\n",
+           d->total_eeg_packets > 0
+               ? 100.0f - (100.0f * d->dropped_packets / d->total_eeg_packets)
+               : 100.0f,
+           d->error_count);
+    printf("EEG:        %lu packets, att(avg=%d min=%d max=%d)"
+           " med(avg=%d min=%d max=%d)\n",
+           d->total_eeg_packets,
+           d->attention_stats.avg, d->attention_stats.min, d->attention_stats.max,
+           d->meditation_stats.avg, d->meditation_stats.min, d->meditation_stats.max);
+    printf("Servos:");
     for (int i = 0; i < SERVO_COUNT; i++) {
-        printf("  Servo[%d]: angle=%d\n", i, servo_get_angle((servo_id_t)i));
+        printf(" [%d]=%d", i, servo_get_angle((servo_id_t)i));
     }
-    printf("WiFi:       %s\n", cfg->wifi.enabled ? cfg->wifi.ssid : "disabled");
+    printf("\n");
     printf("======================\n\n");
 }
 
@@ -276,9 +305,12 @@ static void cmd_reboot(int argc, char **argv)
 static void cmd_info(int argc, char **argv)
 {
     (void)argc; (void)argv;
-    printf("\nAxis v1.0\n");
+    const diagnostics_t *d = diagnostics_get();
+    printf("\nAxis v%s\n", AXIS_VERSION_STR);
+    printf("Build:     %s %s\n", AXIS_BUILD_DATE, AXIS_BUILD_TIME);
     printf("Framework: ESP-IDF\n");
     printf("Target:    ESP32\n");
+    printf("Uptime:    %llu ms\n", d->uptime_ms);
     printf("Modules:\n");
     printf("  EEG:     TGAM ThinkGear\n");
     printf("  Servos:  %d channels LEDC PWM\n", SERVO_COUNT);
@@ -286,8 +318,169 @@ static void cmd_info(int argc, char **argv)
     printf("  Gestures:%d presets\n", gesture_player_count());
     printf("  Storage: NVS + SD card\n");
     printf("  Remote:  WiFi WebSocket\n");
-    printf("Heap free: %lu bytes\n", esp_get_free_heap_size());
+    printf("  Status:  RGB LED indicator\n");
+    printf("  Diag:    Health monitoring\n");
+    printf("Heap free: %lu bytes (min: %ld)\n", esp_get_free_heap_size(), d->min_heap_free);
     printf("\n");
+}
+
+static void cmd_diag(int argc, char **argv)
+{
+    (void)argc; (void)argv;
+    const diagnostics_t *d = diagnostics_get();
+
+    printf("\n=== Diagnostics ===\n");
+    printf("Uptime:          %llu ms (%llu h %llu m)\n",
+           d->uptime_ms,
+           d->uptime_ms / 3600000,
+           (d->uptime_ms % 3600000) / 60000);
+    printf("EEG packets:     total=%lu dropped=%lu (%.1f%% loss)\n",
+           d->total_eeg_packets, d->dropped_packets,
+           d->total_eeg_packets > 0
+               ? 100.0f * d->dropped_packets / d->total_eeg_packets : 0.0f);
+    printf("Attention:       avg=%d min=%d max=%d\n",
+           d->attention_stats.avg, d->attention_stats.min, d->attention_stats.max);
+    printf("Meditation:      avg=%d min=%d max=%d\n",
+           d->meditation_stats.avg, d->meditation_stats.min, d->meditation_stats.max);
+    printf("Errors:          %lu\n", d->error_count);
+    printf("Recoveries:      %lu\n", d->recovery_count);
+    printf("Emergency stops: %lu\n", d->emergency_stops);
+    printf("WiFi reconnects: %lu\n", d->wifi_reconnects);
+    printf("Heap free:       %lu (min: %ld)\n", esp_get_free_heap_size(), d->min_heap_free);
+    printf("===================\n\n");
+}
+
+static void cmd_version(int argc, char **argv)
+{
+    (void)argc; (void)argv;
+    printf("Axis BCI v%s\n", AXIS_VERSION_STR);
+    printf("Build: %s %s\n", AXIS_BUILD_DATE, AXIS_BUILD_TIME);
+    printf("SemVer: %d.%d.%d\n", AXIS_VERSION_MAJOR, AXIS_VERSION_MINOR, AXIS_VERSION_PATCH);
+    printf("Heap: %lu bytes free\n", esp_get_free_heap_size());
+}
+
+static void cmd_clear(int argc, char **argv)
+{
+    (void)argc; (void)argv;
+    diagnostics_reset_stats();
+    printf("Diagnostic counters reset.\n");
+}
+
+#define BAR_WIDTH 16
+
+static void draw_bar(int val, int max_val, int width)
+{
+    int filled = (val * width) / max_val;
+    if (filled > width) filled = width;
+    printf("[");
+    for (int i = 0; i < width; i++) {
+        if (i < filled) printf("#");
+        else if (i == filled && val > 0) printf(">");
+        else printf(" ");
+    }
+    printf("]");
+}
+
+static void dashboard_task(void *pv)
+{
+    (void)pv;
+    int dashes = 60;
+    const char *mode_names[] = {"GRIP", "FINGER_SEL", "SEQUENCE", "CALIBRATE"};
+    bool running = true;
+
+    while (running) {
+        const app_config_t *cfg = nvs_config_get();
+        const diagnostics_t *d = diagnostics_get();
+        tgam_data_t eeg = eeg_reader_get_latest();
+        int mode = command_interpreter_get_mode();
+
+        printf("\033[2J\033[H");
+        for (int i = 0; i < dashes; i++) printf("="); printf("\n");
+        printf("  AXIS BCI  v%-8s         Live Dashboard          Uptime: %02lluh %02llum\n",
+               AXIS_VERSION_STR,
+               d->uptime_ms / 3600000, (d->uptime_ms % 3600000) / 60000);
+        for (int i = 0; i < dashes; i++) printf("="); printf("\n");
+
+        printf("  EEG SIGNAL                         SERVO POSITIONS\n");
+        printf("  Attention:  %3d  ", eeg.attention);
+        draw_bar(eeg.attention, 100, BAR_WIDTH);
+        printf("  Thumb [0]:  %3d", servo_get_angle(SERVO_THUMB));
+        draw_bar(servo_get_angle(SERVO_THUMB), 180, BAR_WIDTH);
+        printf("\n");
+
+        printf("  Meditation: %3d  ", eeg.meditation);
+        draw_bar(eeg.meditation, 100, BAR_WIDTH);
+        printf("  Index [1]:  %3d", servo_get_angle(SERVO_INDEX));
+        draw_bar(servo_get_angle(SERVO_INDEX), 180, BAR_WIDTH);
+        printf("\n");
+
+        printf("  Blink:      %3d", eeg.blink_strength);
+        draw_bar(eeg.blink_strength, 200, BAR_WIDTH);
+        printf("  Middle [2]: %3d", servo_get_angle(SERVO_MIDDLE));
+        draw_bar(servo_get_angle(SERVO_MIDDLE), 180, BAR_WIDTH);
+        printf("\n");
+
+        printf("  Signal Quality:       ");
+        if (eeg.poor_signal_quality == 0) printf("GOOD");
+        else if (eeg.poor_signal_quality < 100) printf("FAIR");
+        else if (eeg.poor_signal_quality < 200) printf("POOR");
+        else printf("BAD");
+        printf("  Ring [3]:   %3d", servo_get_angle(SERVO_RING));
+        draw_bar(servo_get_angle(SERVO_RING), 180, BAR_WIDTH);
+        printf("\n");
+
+        printf("  EEG Mode:  %s", mode >= 0 && mode <= 3 ? mode_names[mode] : "?");
+        printf("                       Pinky [4]: %3d", servo_get_angle(SERVO_PINKY));
+        draw_bar(servo_get_angle(SERVO_PINKY), 180, BAR_WIDTH);
+        printf("\n");
+
+        for (int i = 0; i < dashes; i++) printf("-"); printf("\n");
+
+        printf("  EEG BANDS:  d=%-5lu t=%-5lu a1=%-5lu a2=%-5lu b1=%-5lu b2=%-5lu g1=%-5lu g2=%-5lu\n",
+               eeg.eeg_power.delta, eeg.eeg_power.theta,
+               eeg.eeg_power.low_alpha, eeg.eeg_power.high_alpha,
+               eeg.eeg_power.low_beta, eeg.eeg_power.high_beta,
+               eeg.eeg_power.low_gamma, eeg.eeg_power.high_gamma);
+
+        printf("  RATIOS:     a/b=%.2f  t/g=%.2f  att/med=%.2f\n",
+               (eeg.eeg_power.low_beta + eeg.eeg_power.high_beta) > 0
+                   ? (float)(eeg.eeg_power.low_alpha + eeg.eeg_power.high_alpha)
+                     / (eeg.eeg_power.low_beta + eeg.eeg_power.high_beta) : 0,
+               (eeg.eeg_power.low_gamma + eeg.eeg_power.high_gamma) > 0
+                   ? (float)eeg.eeg_power.theta
+                     / (eeg.eeg_power.low_gamma + eeg.eeg_power.high_gamma) : 0,
+               eeg.meditation > 0 ? (float)eeg.attention / eeg.meditation : 0);
+
+        for (int i = 0; i < dashes; i++) printf("="); printf("\n");
+
+        printf("  SYSTEM:  safe=%s  wifi=%s(%d)  log=%s  heap=%lu  errors=%lu  emerg=%lu\n",
+               safety_monitor_is_safe() ? "YES" : "NO",
+               cfg->wifi.enabled ? cfg->wifi.ssid : "off",
+               wifi_control_client_count(),
+               data_logger_get_state() == LOGGER_RUNNING ? "ON" : "OFF",
+               esp_get_free_heap_size(),
+               d->error_count, d->emergency_stops);
+
+        for (int i = 0; i < dashes; i++) printf("="); printf("\n");
+        printf("  Press 'q' + ENTER to exit dashboard\n\n");
+
+        uint8_t byte;
+        int len = uart_read_bytes(CLI_UART, &byte, 1, pdMS_TO_TICKS(300));
+        if (len > 0 && (byte == 'q' || byte == 'Q')) {
+            running = false;
+        }
+    }
+}
+
+static void cmd_dashboard(int argc, char **argv)
+{
+    (void)argc; (void)argv;
+    printf("Entering live dashboard mode. Press 'q' + ENTER to return.\n");
+    vTaskDelay(pdMS_TO_TICKS(1500));
+    dashboard_task(NULL);
+    printf("\nExited dashboard.\n");
+    printf(CLI_PROMPT);
+    fflush(stdout);
 }
 
 static void process_line(const char *line)

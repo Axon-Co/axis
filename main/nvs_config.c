@@ -63,9 +63,55 @@ void nvs_config_load(app_config_t *cfg)
     if (cfg) *cfg = s_current_config;
 }
 
+static bool validate_config(const app_config_t *cfg)
+{
+    if (!cfg) return false;
+
+    if (cfg->brain.attention_threshold_low >= cfg->brain.attention_threshold_high) {
+        ESP_LOGW(TAG, "Invalid thresholds: low=%d >= high=%d",
+                 cfg->brain.attention_threshold_low, cfg->brain.attention_threshold_high);
+        return false;
+    }
+    if (cfg->brain.smoothing_factor > 100) {
+        ESP_LOGW(TAG, "Invalid smoothing_factor: %d", cfg->brain.smoothing_factor);
+        return false;
+    }
+    if (cfg->brain.min_grip > cfg->brain.max_grip) {
+        ESP_LOGW(TAG, "Invalid grip range: min=%d > max=%d",
+                 cfg->brain.min_grip, cfg->brain.max_grip);
+        return false;
+    }
+    if (cfg->system_speed < 1 || cfg->system_speed > 255) {
+        ESP_LOGW(TAG, "Invalid system_speed: %d", cfg->system_speed);
+        return false;
+    }
+    if (cfg->safety.signal_loss_timeout_ms < 100) {
+        ESP_LOGW(TAG, "signal_loss_timeout too low: %d", cfg->safety.signal_loss_timeout_ms);
+        return false;
+    }
+    if (cfg->logging.rate_hz < 1 || cfg->logging.rate_hz > 100) {
+        ESP_LOGW(TAG, "Invalid logging rate: %d", cfg->logging.rate_hz);
+        return false;
+    }
+    for (int i = 0; i < SERVO_COUNT; i++) {
+        if (cfg->servo.min_angle[i] > cfg->servo.max_angle[i]) {
+            ESP_LOGW(TAG, "Servo[%d]: min=%d > max=%d",
+                     i, cfg->servo.min_angle[i], cfg->servo.max_angle[i]);
+            return false;
+        }
+    }
+    return true;
+}
+
 void nvs_config_save(const app_config_t *cfg)
 {
-    if (cfg) memcpy(&s_current_config, cfg, sizeof(app_config_t));
+    if (cfg) {
+        if (!validate_config(cfg)) {
+            ESP_LOGE(TAG, "Config validation failed — save rejected");
+            return;
+        }
+        memcpy(&s_current_config, cfg, sizeof(app_config_t));
+    }
 
     nvs_handle_t handle;
     esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &handle);
@@ -85,7 +131,7 @@ void nvs_config_save(const app_config_t *cfg)
     }
 
     nvs_close(handle);
-    ESP_LOGI(TAG, "Configuration saved");
+    ESP_LOGI(TAG, "Configuration saved (validated)");
 }
 
 void nvs_config_reset(void)

@@ -1,5 +1,6 @@
 #include "safety_monitor.h"
 #include "servo_controller.h"
+#include "diagnostics.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -30,6 +31,7 @@ static void safety_task(void *pv)
         if (s_last_valid_signal > 0 &&
             (now - s_last_valid_signal) > s_signal_loss_timeout) {
             ESP_LOGW(TAG, "Signal loss! Moving to safe position");
+            diagnostics_increment_emergency_stop();
             servo_smooth_all(SAFE_ANGLES, 1000);
             servo_enable(false);
             s_emergency = true;
@@ -62,6 +64,7 @@ void safety_monitor_feed(const tgam_data_t *eeg)
 
         if (s_emergency) {
             ESP_LOGI(TAG, "Signal recovered, releasing emergency stop");
+            diagnostics_increment_recovery();
             s_emergency = false;
             servo_enable(true);
         }

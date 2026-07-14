@@ -15,6 +15,9 @@
 #include "serial_cli.h"
 #include "wifi_control.h"
 #include "signal_processor.h"
+#include "diagnostics.h"
+#include "led_status.h"
+#include "version.h"
 
 static const char *TAG = "Axis";
 
@@ -23,6 +26,10 @@ static const char *TAG = "Axis";
 #define GPIO_SERVO_MID   GPIO_NUM_21
 #define GPIO_SERVO_RING  GPIO_NUM_22
 #define GPIO_SERVO_PINKY GPIO_NUM_23
+
+#define GPIO_LED_R       GPIO_NUM_25
+#define GPIO_LED_G       GPIO_NUM_26
+#define GPIO_LED_B       GPIO_NUM_27
 
 static const int DEFAULT_PINS[SERVO_COUNT] = {
     GPIO_SERVO_THUMB,
@@ -55,6 +62,10 @@ void app_main(void)
     nvs_config_init();
     const app_config_t *cfg = nvs_config_get();
 
+    diagnostics_init();
+    led_status_init(GPIO_LED_R, GPIO_LED_G, GPIO_LED_B);
+    led_status_blink(LED_BOOTING, 150);
+
     motion_planner_init();
 
     servo_config_t servo_cfgs[SERVO_COUNT];
@@ -73,9 +84,12 @@ void app_main(void)
 
     if (cfg->wifi.enabled) {
         wifi_control_init(cfg->wifi.ssid, cfg->wifi.password, cfg->wifi.channel);
+        led_status_set(LED_WIFI_ACTIVE);
+    } else {
+        led_status_set(LED_NORMAL);
     }
 
-    ESP_LOGI(TAG, "Axis v1.0 ready");
+    ESP_LOGI(TAG, "Axis v%s ready", AXIS_VERSION_STR);
     ESP_LOGI(TAG, "WiFi SSID: %s | Servos: %d | Mode: GRIP",
              cfg->wifi.enabled ? cfg->wifi.ssid : "disabled", SERVO_COUNT);
 
@@ -84,10 +98,14 @@ void app_main(void)
     tgam_data_t eeg = {0};
     processed_signal_t proc = {0};
 
+    uint32_t last_led_update = 0;
+    uint32_t last_eeg_log = 0;
+
     while (1) {
         tgam_data_t fresh = eeg_reader_get_latest();
         if (fresh.has_new_data) {
             eeg = fresh;
+            diagnostics_update_eeg(&eeg);
             safety_monitor_feed(&eeg);
 
             signal_processor_feed(&eeg, &proc);
@@ -114,17 +132,36 @@ void app_main(void)
             data_logger_feed(&eeg, angles);
         }
 
-        if (now - last_status > 5000) {
-            ESP_LOGI(TAG, "Att=%d Med=%d Blink=%d Signal=%d "
+        if (now - last_led_update > 500) {
+            if (!safety_monitor_is_safe()) {
+                led_status_blink(LED_EMERGENCY, 300);
+            } else if (eeg.poor_signal_quality > 200) {
+                led_status_set(LED_POOR_SIGNAL);
+            } else if (command_interpreter_get_mode() == MODE_CALIBRATE) {
+                led_status_blink(LED_CALIBRATING, 400);
+            } else if (data_logger_get_state() == LOGGER_RUNNING) {
+                led_status_blink(LED_LOGGING, 600);
+            } else if (wifi_control_client_count() > 0) {
+                led_status_set(LED_WIFI_ACTIVE);
+            } else {
+                led_status_set(LED_NORMAL);
+            }
+            last_led_update = now;
+        }
+
+        if (now - last_status > 10000) {
+            ESP_LOGI(TAG, "v%s Att=%d Med=%d Blink=%d Signal=%d "
                           "Alpha/Beta=%.2f Theta/Gamma=%.2f "
-                          "AdaptThr=%d/%d Mode=%d Clients=%d",
+                          "AdaptThr=%d/%d Mode=%d Clients=%d Heap=%lu",
+                     AXIS_VERSION_STR,
                      eeg.attention, eeg.meditation,
                      eeg.blink_strength, eeg.poor_signal_quality,
                      proc.alpha_beta_ratio, proc.theta_gamma_ratio,
                      proc.adaptive_att_threshold_low,
                      proc.adaptive_att_threshold_high,
                      command_interpreter_get_mode(),
-                     wifi_control_client_count());
+                     wifi_control_client_count(),
+                     esp_get_free_heap_size());
             last_status = now;
         }
 

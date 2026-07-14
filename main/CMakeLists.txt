@@ -13,6 +13,8 @@ idf_component_register(
         serial_cli.c
         wifi_control.c
         signal_processor.c
+        diagnostics.c
+        led_status.c
     INCLUDE_DIRS "."
     REQUIRES
         nvs_flash
@@ -22,4 +24,5 @@ idf_component_register(
         sdmmc
         fatfs
         driver
+        esp_timer
 )

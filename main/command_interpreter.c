@@ -133,9 +133,59 @@ static void process_finger_select_mode(const tgam_data_t *eeg)
     servo_smooth_to((servo_id_t)s_selected_finger, angle, 200);
 }
 
+static uint8_t s_seq_step = 0;
+static uint32_t s_seq_last_advance = 0;
+static uint8_t s_seq_att_hold = 0;
+
+static const uint8_t SEQUENCE_POSES[][SERVO_COUNT] = {
+    {30,  10,  10,  10,  10},
+    {150, 170, 170, 170, 160},
+    {30,  170, 10,  10,  10},
+    {150, 170, 10,  10,  10},
+    {30,  170, 170, 10,  10},
+    {150, 170, 10,  10,  30},
+    {30,  10,  170, 170, 10},
+    {150, 170, 170, 170, 160},
+};
+
+#define SEQUENCE_STEPS (sizeof(SEQUENCE_POSES) / sizeof(SEQUENCE_POSES[0]))
+#define SEQ_HOLD_MS    800
+#define SEQ_ADVANCE_ATT_THR 55
+
 static void process_sequence_mode(const tgam_data_t *eeg)
 {
-    (void)eeg;
+    uint32_t now = xTaskGetTickCount() * portTICK_PERIOD_MS;
+
+    if (eeg->attention >= SEQ_ADVANCE_ATT_THR) {
+        s_seq_att_hold++;
+        if (s_seq_att_hold > 3 && (now - s_seq_last_advance) > SEQ_HOLD_MS) {
+            s_seq_step = (s_seq_step + 1) % SEQUENCE_STEPS;
+            s_seq_last_advance = now;
+            s_seq_att_hold = 0;
+            ESP_LOGI(TAG, "Sequence advanced to step %d/%d", s_seq_step + 1, SEQUENCE_STEPS);
+        }
+    } else {
+        s_seq_att_hold = 0;
+    }
+
+    uint8_t angle;
+    if (eeg->meditation > 50) {
+        angle = servo_get_angle(SERVO_THUMB);
+    } else {
+        uint8_t grip = (50 - eeg->meditation) * 100 / 50;
+        if (grip > 100) grip = 100;
+        uint8_t open = SEQUENCE_POSES[s_seq_step][0];
+        uint8_t closed = SEQUENCE_POSES[s_seq_step][0] > 90 ? 30 : 170;
+        angle = open + (uint32_t)(closed - open) * grip / 100;
+    }
+
+    servo_set_angle(SERVO_THUMB, angle);
+
+    if (eeg->blink_strength > 80) {
+        s_seq_step = 0;
+        s_seq_last_advance = now;
+        ESP_LOGI(TAG, "Sequence reset to step 1 via blink");
+    }
 }
 
 static void process_calibrate_mode(const tgam_data_t *eeg)
