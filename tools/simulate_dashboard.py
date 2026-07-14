@@ -59,6 +59,7 @@ class EEGSimulator:
         self.target = self.profile.copy()
         self.transition_t = 1.0
         self.transition_dur = 3.0
+        self.prev_state = state
 
         self.pink = [0.0] * PINK_NOISE_OCTAVES
         self.pink_counts = [0] * PINK_NOISE_OCTAVES
@@ -78,9 +79,10 @@ class EEGSimulator:
 
     def set_state(self, name):
         if name in STATES and name != self.state:
+            self.prev_state = self.state
+            self.state = name
             self.target = STATES[name].copy()
             self.transition_t = 0.0
-            self.state = name
             return True
         return False
 
@@ -129,12 +131,13 @@ class EEGSimulator:
                 self.profile = self.target.copy()
             else:
                 s = self.transition_t * self.transition_t * (3 - 2 * self.transition_t)
+                base_state = STATES.get(self.prev_state, STATES['relaxed'])
                 for k in self.profile:
                     if k in ('attention', 'meditation'):
-                        base = STATES.get(self.state, STATES['relaxed']).get(k, 50)
+                        base = base_state.get(k, 50)
                         self.profile[k] = base + (self.target[k] - base) * s
                     elif k in BANDS:
-                        base = STATES.get(self.state, STATES['relaxed']).get(k, 0.05)
+                        base = base_state.get(k, 0.05)
                         self.profile[k] = base + (self.target[k] - base) * s
 
         raw = 0.0
