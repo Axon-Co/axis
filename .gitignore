@@ -11,3 +11,7 @@ sdkconfig.old
 CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
+
+tools/__pycache__/
+tools/*.pyc
+*.pyc

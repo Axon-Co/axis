@@ -14,6 +14,7 @@
 #include "data_logger.h"
 #include "serial_cli.h"
 #include "wifi_control.h"
+#include "signal_processor.h"
 
 static const char *TAG = "EspBrain";
 
@@ -64,6 +65,7 @@ void app_main(void)
     eeg_reader_init();
     safety_monitor_init(cfg->safety.signal_loss_timeout_ms,
                         cfg->safety.poor_quality_timeout_ms);
+    signal_processor_init();
     command_interpreter_init(&cfg->brain);
     gesture_player_init();
     data_logger_init();
@@ -80,12 +82,16 @@ void app_main(void)
     uint32_t last_status = 0;
     uint32_t last_ws = 0;
     tgam_data_t eeg = {0};
+    processed_signal_t proc = {0};
 
     while (1) {
         tgam_data_t fresh = eeg_reader_get_latest();
         if (fresh.has_new_data) {
             eeg = fresh;
             safety_monitor_feed(&eeg);
+
+            signal_processor_feed(&eeg, &proc);
+
             if (safety_monitor_is_safe()) {
                 command_interpreter_process(&eeg);
             }
@@ -109,11 +115,15 @@ void app_main(void)
         }
 
         if (now - last_status > 5000) {
-            ESP_LOGI(TAG, "Att=%d Med=%d Blink=%d Signal=%d Mode=%d Safe=%d Clients=%d",
+            ESP_LOGI(TAG, "Att=%d Med=%d Blink=%d Signal=%d "
+                          "Alpha/Beta=%.2f Theta/Gamma=%.2f "
+                          "AdaptThr=%d/%d Mode=%d Clients=%d",
                      eeg.attention, eeg.meditation,
                      eeg.blink_strength, eeg.poor_signal_quality,
+                     proc.alpha_beta_ratio, proc.theta_gamma_ratio,
+                     proc.adaptive_att_threshold_low,
+                     proc.adaptive_att_threshold_high,
                      command_interpreter_get_mode(),
-                     safety_monitor_is_safe(),
                      wifi_control_client_count());
             last_status = now;
         }

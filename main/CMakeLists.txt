@@ -12,6 +12,7 @@ idf_component_register(
         data_logger.c
         serial_cli.c
         wifi_control.c
+        signal_processor.c
     INCLUDE_DIRS "."
     REQUIRES
         nvs_flash
