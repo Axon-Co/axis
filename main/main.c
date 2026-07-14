@@ -1,0 +1,123 @@
+#include <stdio.h>
+#include <string.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "esp_log.h"
+#include "nvs_flash.h"
+#include "eeg_reader.h"
+#include "servo_controller.h"
+#include "command_interpreter.h"
+#include "nvs_config.h"
+#include "motion_planner.h"
+#include "gesture_player.h"
+#include "safety_monitor.h"
+#include "data_logger.h"
+#include "serial_cli.h"
+#include "wifi_control.h"
+
+static const char *TAG = "EspBrain";
+
+#define GPIO_SERVO_THUMB GPIO_NUM_18
+#define GPIO_SERVO_INDEX GPIO_NUM_19
+#define GPIO_SERVO_MID   GPIO_NUM_21
+#define GPIO_SERVO_RING  GPIO_NUM_22
+#define GPIO_SERVO_PINKY GPIO_NUM_23
+
+static const int DEFAULT_PINS[SERVO_COUNT] = {
+    GPIO_SERVO_THUMB,
+    GPIO_SERVO_INDEX,
+    GPIO_SERVO_MID,
+    GPIO_SERVO_RING,
+    GPIO_SERVO_PINKY,
+};
+
+static void build_servo_configs(servo_config_t *configs, const app_config_t *cfg)
+{
+    for (int i = 0; i < SERVO_COUNT; i++) {
+        configs[i].gpio_pin      = DEFAULT_PINS[i];
+        configs[i].min_angle     = cfg->servo.min_angle[i];
+        configs[i].max_angle     = cfg->servo.max_angle[i];
+        configs[i].home_position = cfg->servo.home_position[i];
+        configs[i].invert        = cfg->servo.invert[i];
+    }
+}
+
+void app_main(void)
+{
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(ret);
+
+    nvs_config_init();
+    const app_config_t *cfg = nvs_config_get();
+
+    motion_planner_init();
+
+    servo_config_t servo_cfgs[SERVO_COUNT];
+    build_servo_configs(servo_cfgs, cfg);
+    servo_controller_init(servo_cfgs);
+    servo_set_speed(cfg->system_speed);
+
+    eeg_reader_init();
+    safety_monitor_init(cfg->safety.signal_loss_timeout_ms,
+                        cfg->safety.poor_quality_timeout_ms);
+    command_interpreter_init(&cfg->brain);
+    gesture_player_init();
+    data_logger_init();
+    serial_cli_init();
+
+    if (cfg->wifi.enabled) {
+        wifi_control_init(cfg->wifi.ssid, cfg->wifi.password, cfg->wifi.channel);
+    }
+
+    ESP_LOGI(TAG, "EspBrain v1.0 ready");
+    ESP_LOGI(TAG, "WiFi SSID: %s | Servos: %d | Mode: GRIP",
+             cfg->wifi.enabled ? cfg->wifi.ssid : "disabled", SERVO_COUNT);
+
+    uint32_t last_status = 0;
+    uint32_t last_ws = 0;
+    tgam_data_t eeg = {0};
+
+    while (1) {
+        tgam_data_t fresh = eeg_reader_get_latest();
+        if (fresh.has_new_data) {
+            eeg = fresh;
+            safety_monitor_feed(&eeg);
+            if (safety_monitor_is_safe()) {
+                command_interpreter_process(&eeg);
+            }
+        }
+
+        uint32_t now = xTaskGetTickCount() * portTICK_PERIOD_MS;
+
+        if (cfg->wifi.enabled && (now - last_ws > 100)) {
+            uint8_t angles[SERVO_COUNT];
+            for (int i = 0; i < SERVO_COUNT; i++)
+                angles[i] = servo_get_angle((servo_id_t)i);
+            wifi_control_broadcast(&eeg, angles);
+            last_ws = now;
+        }
+
+        if (data_logger_get_state() == LOGGER_RUNNING) {
+            uint8_t angles[SERVO_COUNT];
+            for (int i = 0; i < SERVO_COUNT; i++)
+                angles[i] = servo_get_angle((servo_id_t)i);
+            data_logger_feed(&eeg, angles);
+        }
+
+        if (now - last_status > 5000) {
+            ESP_LOGI(TAG, "Att=%d Med=%d Blink=%d Signal=%d Mode=%d Safe=%d Clients=%d",
+                     eeg.attention, eeg.meditation,
+                     eeg.blink_strength, eeg.poor_signal_quality,
+                     command_interpreter_get_mode(),
+                     safety_monitor_is_safe(),
+                     wifi_control_client_count());
+            last_status = now;
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(20));
+    }
+}
