@@ -99,7 +99,6 @@ void app_main(void)
     processed_signal_t proc = {0};
 
     uint32_t last_led_update = 0;
-    uint32_t last_eeg_log = 0;
 
     while (1) {
         tgam_data_t fresh = eeg_reader_get_latest();

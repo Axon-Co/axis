@@ -370,7 +370,9 @@ static void cmd_clear(int argc, char **argv)
 
 static void draw_bar(int val, int max_val, int width)
 {
+    if (max_val <= 0) max_val = 1;
     int filled = (val * width) / max_val;
+    if (filled < 0) filled = 0;
     if (filled > width) filled = width;
     printf("[");
     for (int i = 0; i < width; i++) {

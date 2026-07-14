@@ -186,25 +186,12 @@ class EEGSimulator:
 
 sim = EEGSimulator()
 sim_running = True
-sse_clients = []
-sse_lock = threading.Lock()
 
 
 def simulation_thread():
     global sim_running
     while sim_running:
-        data = sim.step()
-        payload = 'data: ' + json.dumps(data) + '\n\n'
-        with sse_lock:
-            dead = []
-            for cl in sse_clients:
-                try:
-                    cl[0].wfile.write(payload.encode())
-                    cl[0].wfile.flush()
-                except:
-                    dead.append(cl)
-            for d in dead:
-                sse_clients.remove(d)
+        sim.step()
         time.sleep(1.0 / sim.rate)
 
 
@@ -277,19 +264,6 @@ class Handler(BaseHTTPRequestHandler):
             if params.get('blink_rate'):
                 sim.blink_rate = max(0, float(params['blink_rate'][0]))
             self.send_json({'noise': sim.noise, 'blink_rate': sim.blink_rate, 'rate': sim.rate})
-
-        elif path == '/api/stream':
-            self.send_response(200)
-            self.send_header('Content-Type', 'text/event-stream')
-            self.send_header('Cache-Control', 'no-cache')
-            self.send_header('Connection', 'keep-alive')
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.end_headers()
-            with sse_lock:
-                sse_clients.append((self, time.time()))
-            while sim_running:
-                time.sleep(1)
-            return
 
         elif path == '/api/states':
             self.send_json(STATES)
@@ -432,6 +406,49 @@ let autoCycleTimer = null;
 let stateNames = ['relaxed','focused','meditative','drowsy','stressed','active'];
 let stateIdx = 0;
 
+function createChart(id, type, datasets, extra) {
+  const ctx = document.getElementById(id).getContext('2d');
+  return new Chart(ctx, {
+    type,
+    data: { labels: [], datasets },
+    options: Object.assign({
+      responsive: true, maintainAspectRatio: false,
+      animation: false,
+      interaction: { mode: 'nearest', intersect: false },
+      plugins: { legend: { labels: { color: '#88a0c0', font: { size: 10 } } } },
+      scales: {
+        x: { ticks: { color: '#576574', maxTicksLimit: 10, font: { size: 9 } }, grid: { color: '#1a2240' } },
+        y: { ticks: { color: '#576574', font: { size: 9 } }, grid: { color: '#1a2240' } },
+      }
+    }, extra)
+  });
+}
+
+function initCharts() {
+  charts.attMed = createChart('chartAttMed', 'line', [
+    { label: 'Attention', data: [], borderColor: '#00ff88', backgroundColor: 'rgba(0,255,136,0.1)', fill: true, tension: 0.3, pointRadius: 0 },
+    { label: 'Meditation', data: [], borderColor: '#00ccff', backgroundColor: 'rgba(0,204,255,0.1)', fill: true, tension: 0.3, pointRadius: 0 },
+    { label: 'Blink', data: [], borderColor: '#ff00ff', backgroundColor: 'rgba(255,0,255,0.05)', fill: true, tension: 0.1, pointRadius: 0 },
+  ], { scales: { y: { min: 0, max: 100 } } });
+
+  charts.pie = new Chart(document.getElementById('chartPie'), {
+    type: 'doughnut',
+    data: { labels: BAND_NAMES, datasets: [{ data: BAND_NAMES.map(() => 0), backgroundColor: BAND_COLORS }] },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      plugins: {
+        legend: { position: 'right', labels: { color: '#88a0c0', font: { size: 9 } } },
+        tooltip: { callbacks: { label: ctx => ctx.label + ': ' + ctx.parsed.toLocaleString() } }
+      }
+    }
+  });
+
+  charts.bands = createChart('chartBands', 'line',
+    BAND_NAMES.map((b, i) => ({ label: b, data: [], borderColor: BAND_COLORS[i], fill: false, tension: 0.3, pointRadius: 0 })),
+    { scales: { y: { type: 'logarithmic', min: 1 } } }
+  );
+}
+
 function updateMetrics(data) {
   const container = document.getElementById('metrics');
   let html = '';
@@ -496,74 +513,31 @@ function updateCharts(data) {
   if (history.length > MAX_HISTORY) history.shift();
   const labels = history.map(d => d.t.toFixed(1));
 
-  // Att/Med chart
-  if (charts.attMed) charts.attMed.destroy();
-  charts.attMed = new Chart(document.getElementById('chartAttMed'), {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [
-        { label: 'Attention', data: history.map(d => d.attention), borderColor: '#00ff88', backgroundColor: 'rgba(0,255,136,0.1)', fill: true, tension: 0.3, pointRadius: 0 },
-        { label: 'Meditation', data: history.map(d => d.meditation), borderColor: '#00ccff', backgroundColor: 'rgba(0,204,255,0.1)', fill: true, tension: 0.3, pointRadius: 0 },
-        { label: 'Blink', data: history.map(d => d.blink), borderColor: '#ff00ff', backgroundColor: 'rgba(255,0,255,0.05)', fill: true, tension: 0.1, pointRadius: 0 },
-      ]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      animation: { duration: 150 },
-      interaction: { mode: 'nearest', intersect: false },
-      plugins: { legend: { labels: { color: '#88a0c0', font: { size: 10 } } } },
-      scales: {
-        x: { ticks: { color: '#576574', maxTicksLimit: 10, font: { size: 9 } }, grid: { color: '#1a2240' } },
-        y: { min: 0, max: 100, ticks: { color: '#576574', font: { size: 9 } }, grid: { color: '#1a2240' } },
-      }
-    }
-  });
+  if (!charts.attMed) initCharts();
 
-  // Pie chart
-  if (charts.pie) charts.pie.destroy();
+  // Att/Med chart — in-place update
+  charts.attMed.data.labels = labels;
+  charts.attMed.data.datasets[0].data = history.map(d => d.attention);
+  charts.attMed.data.datasets[1].data = history.map(d => d.meditation);
+  charts.attMed.data.datasets[2].data = history.map(d => d.blink);
+  charts.attMed.update('none');
+
+  // Pie chart — in-place update
   const last = history[history.length - 1];
   const bp = last ? last.band_powers : {};
-  const pieVals = BAND_NAMES.map(b => bp[b] || 0);
+  const pieVals = BAND_NAMES.map(b => bp[b] || 1);
   const total = pieVals.reduce((a, b) => a + b, 0);
-  charts.pie = new Chart(document.getElementById('chartPie'), {
-    type: 'doughnut',
-    data: {
-      labels: BAND_NAMES.map((b, i) => b + ' (' + (total > 0 ? (pieVals[i]/total*100).toFixed(1) : 0) + '%)'),
-      datasets: [{ data: pieVals, backgroundColor: BAND_COLORS }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      animation: { duration: 200 },
-      plugins: {
-        legend: { position: 'right', labels: { color: '#88a0c0', font: { size: 9 } } },
-        tooltip: { callbacks: { label: ctx => ctx.label + ': ' + ctx.parsed.toLocaleString() } }
-      }
-    }
-  });
+  charts.pie.data.datasets[0].data = pieVals;
+  charts.pie.data.labels = BAND_NAMES.map((b, i) =>
+    b + ' (' + (total > 0 ? (pieVals[i]/total*100).toFixed(1) : 0) + '%)');
+  charts.pie.update('none');
 
-  // Band power chart
-  if (charts.bands) charts.bands.destroy();
-  charts.bands = new Chart(document.getElementById('chartBands'), {
-    type: 'line',
-    data: {
-      labels,
-      datasets: BAND_NAMES.map((b, i) => ({
-        label: b, data: history.map(d => (d.band_powers||{})[b] || 0),
-        borderColor: BAND_COLORS[i], fill: false, tension: 0.3, pointRadius: 0,
-      }))
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      animation: { duration: 150 },
-      interaction: { mode: 'nearest', intersect: false },
-      plugins: { legend: { labels: { color: '#88a0c0', font: { size: 9 } } } },
-      scales: {
-        x: { ticks: { color: '#576574', maxTicksLimit: 10, font: { size: 9 } }, grid: { color: '#1a2240' } },
-        y: { type: 'logarithmic', ticks: { color: '#576574', font: { size: 9 } }, grid: { color: '#1a2240' } },
-      }
-    }
-  });
+  // Band power chart — in-place update
+  charts.bands.data.labels = labels;
+  for (let i = 0; i < BAND_NAMES.length; i++) {
+    charts.bands.data.datasets[i].data = history.map(d => Math.max(1, (d.band_powers||{})[BAND_NAMES[i]] || 1));
+  }
+  charts.bands.update('none');
 }
 
 async function poll() {
@@ -602,11 +576,13 @@ function setAutoCycle(secs) {
 
 function resetStats() {
   history = [];
-  ['attMed','pie','bands'].forEach(k => { if (charts[k]) { charts[k].destroy(); delete charts[k]; } });
+  Object.values(charts).forEach(c => c.destroy());
+  charts = {};
 }
 
+initCharts();
 poll();
-setInterval(poll, 200);
+setInterval(poll, 350);
 </script>
 </body>
 </html>"""

@@ -26,10 +26,6 @@ typedef struct {
 
     int32_t min_heap_free;
     uint32_t wifi_reconnects;
-
-    struct {
-        uint8_t svc[SERVO_COUNT];
-    } peak_servo_usage;
 } diagnostics_t;
 
 void diagnostics_init(void);

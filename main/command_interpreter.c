@@ -199,7 +199,14 @@ static void process_calibrate_mode(const tgam_data_t *eeg)
 
 void command_interpreter_process(const tgam_data_t *eeg)
 {
-    if (!eeg || eeg->poor_signal_quality > 0) return;
+    if (!eeg) return;
+
+    if (s_mode == MODE_CALIBRATE) {
+        process_calibrate_mode(eeg);
+        return;
+    }
+
+    if (eeg->poor_signal_quality > 200) return;
 
     switch (s_mode) {
     case MODE_GRIP:
@@ -211,8 +218,7 @@ void command_interpreter_process(const tgam_data_t *eeg)
     case MODE_SEQUENCE:
         process_sequence_mode(eeg);
         break;
-    case MODE_CALIBRATE:
-        process_calibrate_mode(eeg);
+    default:
         break;
     }
 }
