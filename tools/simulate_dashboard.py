@@ -470,217 +470,178 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Axis Simulation Dashboard</title>
+<title>Axis — EEG Simulation</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Segoe UI', system-ui, sans-serif; background: #070b18; color: #c8d6e5; padding: 16px; }
+body { font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; background: #0d1117; color: #c9d1d9; padding: 20px; }
 
-.header { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
-.header h1 { color: #00ff88; font-size: 22px; }
-.header .badge { padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
-.badge-state { background: #1a3a2a; color: #00ff88; }
-.badge-online { background: #1a2a3a; color: #00ccff; }
-.header .controls { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.controls select, .controls input { background: #141a2e; color: #c8d6e5; border: 1px solid #2a3460; padding: 4px 10px; border-radius: 4px; font-size: 12px; }
-.controls button { background: #00ff88; color: #070b18; border: none; padding: 4px 14px; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 12px; }
-.controls button:hover { background: #00cc6a; }
+.toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+.toolbar h1 { color: #58a6ff; font-size: 18px; font-weight: 600; letter-spacing: -0.5px; }
+.toolbar .sep { color: #30363d; font-size: 18px; }
+.toolbar .info { font-size: 12px; color: #8b949e; }
+.toolbar .spacer { flex: 1; }
+.toolbar select, .toolbar button { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; }
+.toolbar select:hover, .toolbar button:hover { border-color: #8b949e; }
+.toolbar button { background: #238636; border-color: #238636; color: #fff; font-weight: 500; }
+.toolbar button:hover { background: #2ea043; }
 
-.top-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
-.metric { flex: 1; min-width: 140px; background: #101624; border: 1px solid #1a2240; border-radius: 10px; padding: 12px 16px; text-align: center; position: relative; overflow: hidden; }
-.metric .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: #576574; }
-.metric .value { font-size: 32px; font-weight: 700; margin: 2px 0; font-family: 'JetBrains Mono', monospace; }
-.metric .unit { font-size: 11px; color: #576574; }
-.metric .mini-bar { height: 3px; border-radius: 2px; margin-top: 4px; transition: width 0.3s; }
+.metrics { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.metric { flex: 1; min-width: 110px; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 10px 14px; }
+.metric .lbl { font-size: 10px; text-transform: uppercase; color: #8b949e; letter-spacing: 0.5px; }
+.metric .val { font-size: 26px; font-weight: 600; margin: 2px 0; font-family: 'SF Mono', 'JetBrains Mono', monospace; }
+.metric .bar { height: 2px; border-radius: 1px; margin-top: 4px; transition: width 0.2s; }
 
-.chart-row { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-bottom: 12px; }
-.chart-row-full { grid-template-columns: 1fr; }
+.grid { display: grid; grid-template-columns: 3fr 2fr; gap: 12px; margin-bottom: 12px; }
+.grid-wide { grid-template-columns: 1fr; }
+.card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 14px; }
+.card h3 { color: #8b949e; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+.card canvas { width: 100% !important; max-height: 210px; }
 
-.card { background: #101624; border: 1px solid #1a2240; border-radius: 10px; padding: 14px; }
-.card h3 { color: #88a0c0; font-size: 12px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
-.card canvas { width: 100% !important; max-height: 200px; }
+.row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.servo-area { display: flex; gap: 6px; justify-content: center; align-items: flex-end; height: 120px; padding: 8px 0; }
+.servo-c { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 44px; }
+.servo-c .bar { width: 24px; border-radius: 3px 3px 0 0; transition: height 0.2s; min-height: 3px; }
+.servo-c .nm { font-size: 8px; color: #8b949e; }
+.servo-c .deg { font-size: 10px; font-weight: 600; }
 
-.bottom-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+table.stat { width: 100%; font-size: 12px; border-collapse: collapse; }
+table.stat td { padding: 2px 6px; }
+table.stat .k { color: #8b949e; }
+table.stat .v { color: #c9d1d9; font-weight: 500; text-align: right; font-family: 'SF Mono', monospace; }
 
-.stat-table { width: 100%; font-size: 12px; border-collapse: collapse; }
-.stat-table td { padding: 3px 6px; }
-.stat-table .key { color: #576574; }
-.stat-table .val { color: #c8d6e5; font-weight: 600; text-align: right; font-family: monospace; }
+.ratio-grid { display: flex; gap: 8px; flex-wrap: wrap; }
+.ratio-item { flex: 1; min-width: 80px; text-align: center; padding: 6px; }
+.ratio-item .rlbl { font-size: 9px; color: #8b949e; text-transform: uppercase; }
+.ratio-item .rval { font-size: 18px; font-weight: 600; }
 
-#servo-viz { display: flex; gap: 8px; justify-content: center; align-items: flex-end; height: 140px; padding: 10px 0; }
-.servo-col { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 50px; }
-.servo-col .bar { width: 30px; border-radius: 4px 4px 0 0; transition: height 0.3s; min-height: 4px; }
-.servo-col .s-name { font-size: 9px; color: #576574; text-transform: uppercase; }
-.servo-col .s-val { font-size: 10px; font-weight: 600; color: #c8d6e5; }
-
-@media (max-width: 900px) {
-  .chart-row { grid-template-columns: 1fr; }
-  .bottom-row { grid-template-columns: 1fr; }
-}
+@media (max-width: 800px) { .grid { grid-template-columns: 1fr; } .row3 { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
 
-<div class="header">
-  <h1>🧠 Axis Simulation</h1>
-  <span class="badge badge-state" id="stateBadge">relaxed</span>
-  <span class="badge badge-online" id="onlineBadge">● LIVE</span>
-  <span style="font-size:12px;color:#576574" id="timeDisplay">0s</span>
-  <div class="controls">
-    <select id="stateSelect" onchange="setState(this.value)">
-      <option value="relaxed">Relaxed</option>
-      <option value="focused">Focused</option>
-      <option value="meditative">Meditative</option>
-      <option value="drowsy">Drowsy</option>
-      <option value="stressed">Stressed</option>
-      <option value="active">Active</option>
-    </select>
-    <select id="autoCycle" onchange="setAutoCycle(this.value)">
-      <option value="0">No auto-cycle</option>
-      <option value="5">Cycle every 5s</option>
-      <option value="10">Cycle every 10s</option>
-      <option value="20">Cycle every 20s</option>
-    </select>
-    <button onclick="resetStats()">Reset</button>
-  </div>
+<div class="toolbar">
+  <h1>Axis</h1>
+  <span class="sep">/</span>
+  <span style="font-size:13px;color:#c9d1d9" id="stateBadge">relaxed</span>
+  <span class="info" id="timeDisplay">0s</span>
+  <span class="spacer"></span>
+  <select id="stateSelect" onchange="setState(this.value)">
+    <option value="relaxed">Relaxed</option>
+    <option value="focused">Focused</option>
+    <option value="meditative">Meditative</option>
+    <option value="drowsy">Drowsy</option>
+    <option value="stressed">Stressed</option>
+    <option value="active">Active</option>
+  </select>
+  <select id="autoCycle" onchange="setAutoCycle(this.value)">
+    <option value="0">Static</option>
+    <option value="5">Cycle 5s</option>
+    <option value="10">Cycle 10s</option>
+    <option value="20">Cycle 20s</option>
+  </select>
+  <button onclick="resetStats()">Reset</button>
 </div>
 
-<div class="top-row" id="metrics"></div>
+<div class="metrics" id="metrics"></div>
 
-<div class="chart-row">
-  <div class="card"><h3>📈 Attention & Meditation</h3><canvas id="chartAttMed"></canvas></div>
-  <div class="card"><h3>🥧 Band Power</h3><canvas id="chartPie"></canvas></div>
+<div class="grid">
+  <div class="card"><h3>Attention / Meditation</h3><canvas id="chartAttMed"></canvas></div>
+  <div class="card"><h3>Band Power</h3><canvas id="chartPie"></canvas></div>
 </div>
 
-<div class="chart-row chart-row-full">
-  <div class="card"><h3>🌊 EEG Frequency Bands (log scale)</h3><canvas id="chartBands"></canvas></div>
+<div class="grid grid-wide">
+  <div class="card"><h3>EEG Frequency Bands</h3><canvas id="chartBands"></canvas></div>
 </div>
 
-<div class="bottom-row">
-  <div class="card"><h3>🤖 Servo Positions</h3><div id="servo-viz"></div></div>
-  <div class="card"><h3>📊 Statistics</h3><table class="stat-table" id="statsTable"></table></div>
-  <div class="card"><h3>📐 EEG Ratios</h3>
-    <table class="stat-table" id="ratiosTable">
-      <tr><td class="key">α/β Ratio</td><td class="val" id="rAb">—</td></tr>
-      <tr><td class="key">θ/γ Ratio</td><td class="val" id="rTg">—</td></tr>
-      <tr><td class="key">Att/Med Ratio</td><td class="val" id="rAm">—</td></tr>
-      <tr><td class="key">Signal Quality</td><td class="val" id="rSig">—</td></tr>
-    </table>
+<div class="row3">
+  <div class="card"><h3>Servo Positions</h3><div class="servo-area" id="servo-viz"></div></div>
+  <div class="card"><h3>Statistics</h3><table class="stat" id="statsTable"></table></div>
+  <div class="card"><h3>Ratios</h3>
+    <div class="ratio-grid">
+      <div class="ratio-item"><div class="rlbl">Alpha/Beta</div><div class="rval" id="rAb" style="color:#58a6ff">—</div></div>
+      <div class="ratio-item"><div class="rlbl">Theta/Gamma</div><div class="rval" id="rTg" style="color:#a5d6ff">—</div></div>
+      <div class="ratio-item"><div class="rlbl">Att/Med</div><div class="rval" id="rAm" style="color:#79c0ff">—</div></div>
+      <div class="ratio-item"><div class="rlbl">Signal</div><div class="rval" id="rSig" style="color:#7ee787">—</div></div>
+    </div>
   </div>
 </div>
 
 <script>
-const BAND_COLORS = ['#ff0000','#ff8800','#ffff00','#00ff00','#00ccff','#0066ff','#8800ff','#ff00ff'];
-const SERVO_COLORS = ['#ff6b6b','#ffaa00','#ffdd00','#00ccff','#00ff88'];
+const BAND_COLORS = ['#ff6b6b','#ffa657','#d29922','#7ee787','#58a6ff','#a5d6ff','#bc8cff','#f778ba'];
+const SERVO_COLORS = ['#ff6b6b','#ffa657','#d29922','#58a6ff','#7ee787'];
 const BAND_NAMES = ['delta','theta','low_alpha','high_alpha','low_beta','high_beta','low_gamma','high_gamma'];
 const METRIC_KEYS = [
-  {key:'attention', label:'Attention', color:'#00ff88', max:100, unit:'%'},
-  {key:'meditation', label:'Meditation', color:'#00ccff', max:100, unit:'%'},
-  {key:'blink', label:'Blink', color:'#ff00ff', max:255, unit:''},
-  {key:'signal_quality', label:'Signal', color:'#ffaa00', max:100, unit:'%'},
-  {key:'raw_wave', label:'Raw EEG', color:'#ffdd00', max:100, unit:'µV'},
+  {key:'attention', label:'Attention', color:'#7ee787', max:100, unit:'%'},
+  {key:'meditation', label:'Meditation', color:'#58a6ff', max:100, unit:'%'},
+  {key:'blink', label:'Blink', color:'#f778ba', max:255, unit:''},
+  {key:'signal_quality', label:'Signal', color:'#d29922', max:100, unit:'%'},
+  {key:'raw_wave', label:'Raw EEG', color:'#bc8cff', max:100, unit:'uv'},
 ];
 
 let charts = {};
 let history = [];
 const MAX_HISTORY = 300;
 let autoCycleTimer = null;
-let stateNames = ['relaxed','focused','meditative','drowsy','stressed','active'];
+const stateNames = ['relaxed','focused','meditative','drowsy','stressed','active'];
 let stateIdx = 0;
 
-function createChart(id, type, datasets, extra) {
-  const ctx = document.getElementById(id).getContext('2d');
-  return new Chart(ctx, {
-    type,
-    data: { labels: [], datasets },
-    options: Object.assign({
-      responsive: true, maintainAspectRatio: false,
-      animation: false,
-      interaction: { mode: 'nearest', intersect: false },
-      plugins: { legend: { labels: { color: '#88a0c0', font: { size: 10 } } } },
-      scales: {
-        x: { ticks: { color: '#576574', maxTicksLimit: 10, font: { size: 9 } }, grid: { color: '#1a2240' } },
-        y: { ticks: { color: '#576574', font: { size: 9 } }, grid: { color: '#1a2240' } },
-      }
-    }, extra)
-  });
-}
-
 function initCharts() {
-  charts.attMed = createChart('chartAttMed', 'line', [
-    { label: 'Attention', data: [], borderColor: '#00ff88', backgroundColor: 'rgba(0,255,136,0.1)', fill: true, tension: 0.3, pointRadius: 0 },
-    { label: 'Meditation', data: [], borderColor: '#00ccff', backgroundColor: 'rgba(0,204,255,0.1)', fill: true, tension: 0.3, pointRadius: 0 },
-    { label: 'Blink', data: [], borderColor: '#ff00ff', backgroundColor: 'rgba(255,0,255,0.05)', fill: true, tension: 0.1, pointRadius: 0 },
-  ], { scales: { y: { min: 0, max: 100 } } });
+  function chart(id, type, data, extra) {
+    return new Chart(document.getElementById(id), { type, data,
+      options: Object.assign({ responsive:true, maintainAspectRatio:false, animation:false,
+        interaction:{mode:'nearest',intersect:false},
+        plugins:{legend:{labels:{color:'#8b949e',font:{size:9},padding:8}}},
+        scales:{x:{ticks:{color:'#484f58',maxTicksLimit:8,font:{size:9}},grid:{color:'#21262d'}},
+                y:{ticks:{color:'#484f58',font:{size:9}},grid:{color:'#21262d'}}}
+      }, extra)
+    });
+  }
 
-  charts.pie = new Chart(document.getElementById('chartPie'), {
-    type: 'doughnut',
-    data: { labels: BAND_NAMES, datasets: [{ data: BAND_NAMES.map(() => 0), backgroundColor: BAND_COLORS }] },
-    options: {
-      responsive: true, maintainAspectRatio: false, animation: false,
-      plugins: {
-        legend: { position: 'right', labels: { color: '#88a0c0', font: { size: 9 } } },
-        tooltip: { callbacks: { label: ctx => ctx.label + ': ' + ctx.parsed.toLocaleString() } }
-      }
-    }
-  });
+  charts.attMed = chart('chartAttMed', 'line', {
+    labels:[], datasets:[
+      {label:'Attention', data:[], borderColor:'#7ee787', backgroundColor:'rgba(126,231,135,0.08)', fill:true, tension:0.3, pointRadius:0},
+      {label:'Meditation', data:[], borderColor:'#58a6ff', backgroundColor:'rgba(88,166,255,0.08)', fill:true, tension:0.3, pointRadius:0},
+      {label:'Blink', data:[], borderColor:'#f778ba', backgroundColor:'rgba(247,120,186,0.04)', fill:true, tension:0.1, pointRadius:0},
+    ]
+  }, {scales:{y:{min:0,max:100}}});
 
-  charts.bands = createChart('chartBands', 'line',
-    BAND_NAMES.map((b, i) => ({ label: b, data: [], borderColor: BAND_COLORS[i], fill: false, tension: 0.3, pointRadius: 0 })),
-    { scales: { y: { type: 'logarithmic', min: 1 } } }
-  );
+  charts.pie = chart('chartPie', 'doughnut', {
+    labels:BAND_NAMES,
+    datasets:[{data:BAND_NAMES.map(()=>0), backgroundColor:BAND_COLORS}]
+  }, {cutout:'55%', plugins:{legend:{position:'right',labels:{color:'#8b949e',font:{size:8}}}}});
+
+  charts.bands = chart('chartBands', 'line', {
+    labels:[], datasets:BAND_NAMES.map((b,i)=>({label:b, data:[], borderColor:BAND_COLORS[i], fill:false, tension:0.3, pointRadius:0}))
+  }, {scales:{y:{type:'logarithmic',min:1}}});
 }
 
 function updateMetrics(data) {
-  const container = document.getElementById('metrics');
-  let html = '';
-  METRIC_KEYS.forEach(m => {
-    const v = data[m.key] || 0;
-    const pct = (v / m.max * 100).toFixed(0);
-    html += `<div class="metric">
-      <div class="label">${m.label}</div>
-      <div class="value" style="color:${m.color}">${v}</div>
-      <div class="mini-bar" style="width:${pct}%;background:${m.color}"></div>
-    </div>`;
-  });
-  html += `<div class="metric">
-    <div class="label">STATE</div>
-    <div class="value" style="color:#ffdd00;font-size:22px">${data.state||'?'}</div>
-    <div class="unit">${data.state_desc||''}</div>
-  </div>`;
-  container.innerHTML = html;
+  document.getElementById('metrics').innerHTML =
+    METRIC_KEYS.map(m => {
+      const v = data[m.key] || 0;
+      return `<div class="metric"><div class="lbl">${m.label}</div><div class="val" style="color:${m.color}">${v}</div><div class="bar" style="width:${(v/m.max*100).toFixed(0)}%;background:${m.color}"></div></div>`;
+    }).join('') +
+    `<div class="metric"><div class="lbl">State</div><div class="val" style="color:#d29922;font-size:20px">${data.state||'?'}</div><div style="font-size:9px;color:#8b949e">${data.state_desc||''}</div></div>`;
 }
 
 function updateServos(data) {
   const s = data.servos || [0,0,0,0,0];
-  const names = ['Thumb','Index','Middle','Ring','Pinky'];
-  const maxH = 120;
-  let html = '';
-  s.forEach((v, i) => {
-    const h = Math.max(4, v / 180 * maxH);
-    html += `<div class="servo-col">
-      <div class="bar" style="height:${h}px;background:${SERVO_COLORS[i]}"></div>
-      <div class="s-val">${v.toFixed(0)}°</div>
-      <div class="s-name">${names[i]}</div>
-    </div>`;
-  });
-  document.getElementById('servo-viz').innerHTML = html;
+  const names = ['Thumb','Idx','Mid','Ring','Pinky'];
+  document.getElementById('servo-viz').innerHTML = s.map((v,i) =>
+    `<div class="servo-c"><div class="bar" style="height:${Math.max(3,v/180*100)}px;background:${SERVO_COLORS[i]}"></div><div class="deg">${v.toFixed(0)}</div><div class="nm">${names[i]}</div></div>`
+  ).join('');
 }
 
 function updateStats(data) {
   const s = data || {};
-  const stats = [
-    ['Attention', s.attention?.avg || '—', s.attention?.max || '—'],
-    ['Meditation', s.meditation?.avg || '—', s.meditation?.max || '—'],
-    ['Blinks', s.blink?.count || 0, s.blink?.max || '—'],
-  ];
-  let html = '<tr><td></td><td class="val">Avg</td><td class="val">Max</td></tr>';
-  stats.forEach(([label, avg, max]) => {
-    html += `<tr><td class="key">${label}</td><td class="val">${avg}</td><td class="val">${max}</td></tr>`;
-  });
-  html += `<tr><td class="key">Samples</td><td class="val" colspan="2">${s.samples||0}</td></tr>`;
-  html += `<tr><td class="key">Uptime</td><td class="val" colspan="2">${(s.uptime||0).toFixed(1)}s</td></tr>`;
-  document.getElementById('statsTable').innerHTML = html;
+  document.getElementById('statsTable').innerHTML =
+    `<tr><td></td><td class="v">Avg</td><td class="v">Max</td></tr>` +
+    [['Attention',s.attention?.avg],['Meditation',s.meditation?.avg],['Blinks',s.blink?.count]].map(([l,a]) =>
+      `<tr><td class="k">${l}</td><td class="v">${a||'—'}</td><td class="v">${l==='Blinks'?s.blink?.max||'—':s[l.toLowerCase()]?.max||'—'}</td></tr>`
+    ).join('') +
+    `<tr><td class="k">Samples</td><td class="v" colspan="2">${s.samples||0}</td></tr>` +
+    `<tr><td class="k">Uptime</td><td class="v" colspan="2">${(s.uptime||0).toFixed(1)}s</td></tr>`;
 }
 
 function updateRatios(data) {
@@ -694,31 +655,24 @@ function updateCharts(data) {
   history.push(data);
   if (history.length > MAX_HISTORY) history.shift();
   const labels = history.map(d => d.t.toFixed(1));
-
   if (!charts.attMed) initCharts();
 
-  // Att/Med chart — in-place update
   charts.attMed.data.labels = labels;
   charts.attMed.data.datasets[0].data = history.map(d => d.attention);
   charts.attMed.data.datasets[1].data = history.map(d => d.meditation);
   charts.attMed.data.datasets[2].data = history.map(d => d.blink);
   charts.attMed.update('none');
 
-  // Pie chart — in-place update
   const last = history[history.length - 1];
   const bp = last ? last.band_powers : {};
   const pieVals = BAND_NAMES.map(b => bp[b] || 1);
   const total = pieVals.reduce((a, b) => a + b, 0);
   charts.pie.data.datasets[0].data = pieVals;
-  charts.pie.data.labels = BAND_NAMES.map((b, i) =>
-    b + ' (' + (total > 0 ? (pieVals[i]/total*100).toFixed(1) : 0) + '%)');
+  charts.pie.data.labels = BAND_NAMES.map((b, i) => b + ' ' + (total > 0 ? (pieVals[i]/total*100).toFixed(1) : 0) + '%');
   charts.pie.update('none');
 
-  // Band power chart — in-place update
   charts.bands.data.labels = labels;
-  for (let i = 0; i < BAND_NAMES.length; i++) {
-    charts.bands.data.datasets[i].data = history.map(d => Math.max(1, (d.band_powers||{})[BAND_NAMES[i]] || 1));
-  }
+  BAND_NAMES.forEach((b, i) => { charts.bands.data.datasets[i].data = history.map(d => Math.max(1, (d.band_powers||{})[b] || 1)); });
   charts.bands.update('none');
 }
 
@@ -732,10 +686,8 @@ async function poll() {
     updateServos(data);
     updateRatios(data);
     updateCharts(data);
-
     const r2 = await fetch('/api/stats');
-    const stats = await r2.json();
-    updateStats(stats);
+    updateStats(await r2.json());
   } catch(e) {}
 }
 
@@ -747,21 +699,14 @@ function setState(name) {
 
 function setAutoCycle(secs) {
   if (autoCycleTimer) { clearInterval(autoCycleTimer); autoCycleTimer = null; }
-  if (secs > 0) {
-    autoCycleTimer = setInterval(() => {
-      const sel = document.getElementById('stateSelect');
-      const current = sel.value;
-      stateIdx = (stateNames.indexOf(current) + 1) % stateNames.length;
-      setState(stateNames[stateIdx]);
-    }, secs * 1000);
-  }
+  if (secs > 0) autoCycleTimer = setInterval(() => {
+    const cur = document.getElementById('stateSelect').value;
+    stateIdx = (stateNames.indexOf(cur) + 1) % stateNames.length;
+    setState(stateNames[stateIdx]);
+  }, secs * 1000);
 }
 
-function resetStats() {
-  history = [];
-  Object.values(charts).forEach(c => c.destroy());
-  charts = {};
-}
+function resetStats() { history = []; Object.values(charts).forEach(c => c.destroy()); charts = {}; }
 
 initCharts();
 poll();
