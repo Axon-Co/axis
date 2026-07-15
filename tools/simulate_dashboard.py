@@ -288,21 +288,21 @@ class EEGSimulator:
         p = self.profile
         total_power = sum(p.get(b, 0) for b in BAND_NAMES) or 1.0
 
-        # Generate raw EEG: oscillators + pink noise + artifacts
+        # Generate raw EEG (microvolts): oscillators + pink noise + artifacts
         raw = 0.0
         band_powers = {}
         for b in BAND_NAMES:
             norm = p.get(b, 0) / total_power
             osc_amp = norm * 500
             raw += self.oscillators[b].sample(self.t) * osc_amp / (len(BAND_NAMES) ** 0.5)
-            band_powers[b] = int(norm * BASE_POWER * (0.92 + 0.16 * random.random()))
+            band_powers[b] = norm * BASE_POWER * (0.92 + 0.16 * random.random())
 
         raw += self.pink.sample() * 30 * self.noise
         raw += self.blinks.sample(self.t)
         raw += self.muscle.sample()
         raw += self.line.sample(self.t)
         raw += self.spindle.sample(self.t, p.get('low_alpha', 0) * 200)
-        raw = max(-32768, min(32767, int(raw)))
+        raw = round(max(-100.0, min(100.0, raw)), 4)
 
         # Derive attention/meditation from spectral state + noise
         base_att = p.get('attention', 50)
@@ -337,7 +337,7 @@ class EEGSimulator:
             'blink': blink_out,
             'signal_quality': max(0, 100 - poor * 2),
             'raw_wave': raw,
-            'band_powers': {b: band_powers[b] for b in BAND_NAMES},
+            'band_powers': {b: round(band_powers[b], 1) for b in BAND_NAMES},
             'alpha_beta_ratio': round((la + ha) / (lb + hb + 1), 3),
             'theta_gamma_ratio': round(band_powers['theta'] / (lg + hg + 1), 3),
             'att_med_ratio': round(att / (med + 1), 3),
@@ -578,6 +578,7 @@ const METRIC_KEYS = [
   {key:'meditation', label:'Meditation', color:'#00ccff', max:100, unit:'%'},
   {key:'blink', label:'Blink', color:'#ff00ff', max:255, unit:''},
   {key:'signal_quality', label:'Signal', color:'#ffaa00', max:100, unit:'%'},
+  {key:'raw_wave', label:'Raw EEG', color:'#ffdd00', max:100, unit:'µV'},
 ];
 
 let charts = {};
