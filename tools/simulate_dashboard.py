@@ -36,11 +36,11 @@ BAND_NAMES = list(BANDS.keys())
 
 STATES = {
     'relaxed':   {'delta': 0.05, 'theta': 0.15, 'low_alpha': 0.30, 'high_alpha': 0.25, 'low_beta': 0.12, 'high_beta': 0.08, 'low_gamma': 0.03, 'high_gamma': 0.02, 'attention': 35, 'meditation': 75, 'desc': 'Eyes closed, relaxed alpha'},
-    'focused':   {'delta': 0.02, 'theta': 0.05, 'low_alpha': 0.08, 'high_alpha': 0.05, 'low_beta': 0.30, 'high_beta': 0.25, 'low_gamma': 0.15, 'high_gamma': 0.10, 'attention': 82, 'meditation': 22, 'desc': 'Active concentration'},
-    'meditative':{'delta': 0.08, 'theta': 0.35, 'low_alpha': 0.25, 'high_alpha': 0.10, 'low_beta': 0.10, 'high_beta': 0.05, 'low_gamma': 0.04, 'high_gamma': 0.03, 'attention': 42, 'meditation': 88, 'desc': 'Deep meditation'},
-    'drowsy':    {'delta': 0.25, 'theta': 0.35, 'low_alpha': 0.15, 'high_alpha': 0.08, 'low_beta': 0.08, 'high_beta': 0.04, 'low_gamma': 0.03, 'high_gamma': 0.02, 'attention': 18, 'meditation': 58, 'desc': 'Drowsy'},
-    'stressed':  {'delta': 0.03, 'theta': 0.08, 'low_alpha': 0.05, 'high_alpha': 0.04, 'low_beta': 0.25, 'high_beta': 0.30, 'low_gamma': 0.15, 'high_gamma': 0.10, 'attention': 68, 'meditation': 12, 'desc': 'Anxious/stressed'},
-    'active':    {'delta': 0.04, 'theta': 0.10, 'low_alpha': 0.12, 'high_alpha': 0.08, 'low_beta': 0.25, 'high_beta': 0.20, 'low_gamma': 0.12, 'high_gamma': 0.09, 'attention': 72, 'meditation': 32, 'desc': 'Normal active'},
+    'focused':   {'delta': 0.02, 'theta': 0.04, 'low_alpha': 0.06, 'high_alpha': 0.04, 'low_beta': 0.32, 'high_beta': 0.28, 'low_gamma': 0.14, 'high_gamma': 0.10, 'attention': 85, 'meditation': 20, 'desc': 'Active concentration'},
+    'meditative':{'delta': 0.08, 'theta': 0.38, 'low_alpha': 0.28, 'high_alpha': 0.10, 'low_beta': 0.08, 'high_beta': 0.04, 'low_gamma': 0.02, 'high_gamma': 0.02, 'attention': 40, 'meditation': 90, 'desc': 'Deep meditation'},
+    'drowsy':    {'delta': 0.28, 'theta': 0.38, 'low_alpha': 0.15, 'high_alpha': 0.06, 'low_beta': 0.06, 'high_beta': 0.03, 'low_gamma': 0.02, 'high_gamma': 0.02, 'attention': 15, 'meditation': 55, 'desc': 'Drowsy'},
+    'stressed':  {'delta': 0.03, 'theta': 0.06, 'low_alpha': 0.04, 'high_alpha': 0.03, 'low_beta': 0.26, 'high_beta': 0.34, 'low_gamma': 0.14, 'high_gamma': 0.10, 'attention': 65, 'meditation': 10, 'desc': 'Anxious/stressed'},
+    'active':    {'delta': 0.03, 'theta': 0.08, 'low_alpha': 0.10, 'high_alpha': 0.06, 'low_beta': 0.28, 'high_beta': 0.22, 'low_gamma': 0.13, 'high_gamma': 0.10, 'attention': 75, 'meditation': 35, 'desc': 'Normal active'},
 }
 
 SERVO_OPEN  = [30, 10, 10, 10, 10]
@@ -58,7 +58,7 @@ class EEGSimulator:
         self.profile = STATES[state].copy()
         self.target = self.profile.copy()
         self.transition_t = 1.0
-        self.transition_dur = 3.0
+        self.transition_dur = 0.5
         self.prev_state = state
 
         self.pink = [0.0] * PINK_NOISE_OCTAVES
@@ -82,7 +82,12 @@ class EEGSimulator:
             self.prev_state = self.state
             self.state = name
             self.target = STATES[name].copy()
-            self.transition_t = 0.0
+            self.profile = STATES[name].copy()
+            self.transition_t = 1.0
+            print(f"\n=== STATE CHANGED: {name} ===")
+            print(f"  attention={self.profile['attention']}, meditation={self.profile['meditation']}")
+            for b in BAND_NAMES:
+                print(f"  {b}={self.profile[b]}")
             return True
         return False
 
@@ -145,7 +150,7 @@ class EEGSimulator:
         for i, b in enumerate(BAND_NAMES):
             amp = self.profile.get(b, 0.05) * 500
             raw += amp * math.sin(2 * math.pi * (3 + i * 5) * self.t + self.phases[b])
-            band_powers[b] = max(1, int(amp * 200 * (0.85 + 0.3 * random.random())))
+            band_powers[b] = max(1, int(amp * 200 * (0.95 + 0.1 * random.random())))
 
         raw += self.pink_noise() * 20 * self.noise
         bv = self.blink()
@@ -194,6 +199,7 @@ sim_running = True
 def simulation_thread():
     global sim_running
     while sim_running:
+        before = sim.profile.get('attention', -1)
         sim.step()
         time.sleep(1.0 / sim.rate)
 
