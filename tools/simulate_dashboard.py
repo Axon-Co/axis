@@ -13,173 +13,333 @@ Usage:
     python tools/simulate_dashboard.py --no-browser
 """
 
-import os, sys, json, time, math, random, struct, csv
+import os, sys, json, time, math, random, csv
 import argparse, threading, webbrowser
 from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
 
-# ── EEG Simulation Engine (embedded, same as simulate_eeg.py) ──────────
+# ── Professional EEG Simulation Engine ──────────────────────────────
+# Models: 1/f pink noise, 8-band neural oscillators with frequency
+# jitter, alpha spindles, beta bursts, blink/muscle/line artifacts,
+# state-dependent spectral profiles.
 
-FS = 512.0
-PINK_NOISE_OCTAVES = 6
-BLINK_DURATION = 0.15
+PINK_OCT = 8
+BLINK_DUR = 0.15
+MUSCLE_PROB = 0.008
+BASE_POWER = 100000.0
 
 BANDS = {
-    'delta': (0.5, 4), 'theta': (4, 8), 'low_alpha': (8, 10),
-    'high_alpha': (10, 13), 'low_beta': (13, 18), 'high_beta': (18, 30),
-    'low_gamma': (30, 40), 'high_gamma': (40, 50),
+    'delta':     (0.5, 4),    'theta':     (4, 8),
+    'low_alpha': (8, 10),     'high_alpha': (10, 13),
+    'low_beta':  (13, 18),    'high_beta':  (18, 30),
+    'low_gamma': (30, 40),    'high_gamma': (40, 50),
 }
-
 BAND_NAMES = list(BANDS.keys())
 
+# Neurophysiological state profiles: relative spectral power (sum=1)
+# Each state mimics real EEG from clinical literature.
 STATES = {
-    'relaxed':   {'delta': 0.05, 'theta': 0.15, 'low_alpha': 0.30, 'high_alpha': 0.25, 'low_beta': 0.12, 'high_beta': 0.08, 'low_gamma': 0.03, 'high_gamma': 0.02, 'attention': 35, 'meditation': 75, 'desc': 'Eyes closed, relaxed alpha'},
-    'focused':   {'delta': 0.02, 'theta': 0.04, 'low_alpha': 0.06, 'high_alpha': 0.04, 'low_beta': 0.32, 'high_beta': 0.28, 'low_gamma': 0.14, 'high_gamma': 0.10, 'attention': 85, 'meditation': 20, 'desc': 'Active concentration'},
-    'meditative':{'delta': 0.08, 'theta': 0.38, 'low_alpha': 0.28, 'high_alpha': 0.10, 'low_beta': 0.08, 'high_beta': 0.04, 'low_gamma': 0.02, 'high_gamma': 0.02, 'attention': 40, 'meditation': 90, 'desc': 'Deep meditation'},
-    'drowsy':    {'delta': 0.28, 'theta': 0.38, 'low_alpha': 0.15, 'high_alpha': 0.06, 'low_beta': 0.06, 'high_beta': 0.03, 'low_gamma': 0.02, 'high_gamma': 0.02, 'attention': 15, 'meditation': 55, 'desc': 'Drowsy'},
-    'stressed':  {'delta': 0.03, 'theta': 0.06, 'low_alpha': 0.04, 'high_alpha': 0.03, 'low_beta': 0.26, 'high_beta': 0.34, 'low_gamma': 0.14, 'high_gamma': 0.10, 'attention': 65, 'meditation': 10, 'desc': 'Anxious/stressed'},
-    'active':    {'delta': 0.03, 'theta': 0.08, 'low_alpha': 0.10, 'high_alpha': 0.06, 'low_beta': 0.28, 'high_beta': 0.22, 'low_gamma': 0.13, 'high_gamma': 0.10, 'attention': 75, 'meditation': 35, 'desc': 'Normal active'},
+    'relaxed': {
+        'delta': 0.04, 'theta': 0.12, 'low_alpha': 0.32, 'high_alpha': 0.24,
+        'low_beta': 0.14, 'high_beta': 0.08, 'low_gamma': 0.04, 'high_gamma': 0.02,
+        'attention': 32, 'meditation': 78,
+        'desc': 'Eyes closed — posterior alpha dominant (8-12 Hz)',
+        'alpha_peak': 10.5, 'alpha_width': 1.5,
+    },
+    'focused': {
+        'delta': 0.02, 'theta': 0.04, 'low_alpha': 0.05, 'high_alpha': 0.03,
+        'low_beta': 0.34, 'high_beta': 0.28, 'low_gamma': 0.14, 'high_gamma': 0.10,
+        'attention': 88, 'meditation': 18,
+        'desc': 'Active concentration — frontal beta/gamma (13-40 Hz)',
+        'alpha_peak': 10.0, 'alpha_width': 0.8,
+    },
+    'meditative': {
+        'delta': 0.06, 'theta': 0.40, 'low_alpha': 0.28, 'high_alpha': 0.10,
+        'low_beta': 0.08, 'high_beta': 0.04, 'low_gamma': 0.02, 'high_gamma': 0.02,
+        'attention': 38, 'meditation': 92,
+        'desc': 'Deep meditation — frontal theta (4-8 Hz) + alpha',
+        'alpha_peak': 9.5, 'alpha_width': 2.0,
+    },
+    'drowsy': {
+        'delta': 0.30, 'theta': 0.38, 'low_alpha': 0.12, 'high_alpha': 0.05,
+        'low_beta': 0.08, 'high_beta': 0.03, 'low_gamma': 0.02, 'high_gamma': 0.02,
+        'attention': 12, 'meditation': 52,
+        'desc': 'Drowsy/sleep onset — delta+theta (0.5-8 Hz)',
+        'alpha_peak': 9.0, 'alpha_width': 0.5,
+    },
+    'stressed': {
+        'delta': 0.02, 'theta': 0.05, 'low_alpha': 0.03, 'high_alpha': 0.02,
+        'low_beta': 0.28, 'high_beta': 0.36, 'low_gamma': 0.14, 'high_gamma': 0.10,
+        'attention': 62, 'meditation': 8,
+        'desc': 'Anxious — high beta (18-30 Hz), low alpha',
+        'alpha_peak': 11.0, 'alpha_width': 0.6,
+    },
+    'active': {
+        'delta': 0.03, 'theta': 0.07, 'low_alpha': 0.09, 'high_alpha': 0.05,
+        'low_beta': 0.30, 'high_beta': 0.24, 'low_gamma': 0.12, 'high_gamma': 0.10,
+        'attention': 76, 'meditation': 32,
+        'desc': 'Normal alert — mixed beta with frontal alpha',
+        'alpha_peak': 10.0, 'alpha_width': 1.2,
+    },
 }
 
 SERVO_OPEN  = [30, 10, 10, 10, 10]
 SERVO_CLOSE = [150, 170, 170, 170, 160]
 
 
+class PinkNoise:
+    """Voss-McCartney pink noise (1/f) with configurable octaves."""
+    def __init__(self, octaves=PINK_OCT):
+        self.n = octaves
+        self.vals = [random.random() * 2 - 1 for _ in range(octaves)]
+        self.cnt = [0] * octaves
+        self.per = [1 << i for i in range(octaves)]
+
+    def sample(self):
+        for i in range(self.n):
+            self.cnt[i] += 1
+            if self.cnt[i] >= self.per[i]:
+                self.vals[i] = random.random() * 2 - 1
+                self.cnt[i] = 0
+        return sum(self.vals) / self.n
+
+
+class NeuralOscillator:
+    """
+    Single EEG frequency band oscillator.
+    Generates band-limited oscillations by summing multiple
+    sinusoidal components with frequency jitter for natural rhythm.
+    """
+    def __init__(self, name, f_lo, f_hi, n_components=5):
+        self.name = name
+        self.f_lo = f_lo
+        self.f_hi = f_hi
+        self.amp = 1.0
+        self.alpha_peak = 10.0
+        self.alpha_width = 1.0
+
+        n = max(3, min(n_components, int((f_hi - f_lo) * 2)))
+        self.phases = [random.random() * 2 * math.pi for _ in range(n)]
+        self.freqs = [f_lo + (f_hi - f_lo) * (i + 0.5) / n for i in range(n)]
+        self.jitter = [random.gauss(0, 0.15) for _ in range(n)]
+        self.jitter_t = [0.0] * n
+        self.jitter_per = [random.uniform(0.3, 0.8) for _ in range(n)]
+        weights = [1.0 / (i + 1) for i in range(n)]
+        self.weights = [w / sum(weights) for w in weights]
+
+    def set_amplitude(self, amp):
+        self.amp = amp
+
+    def sample(self, t):
+        val = 0.0
+        for i in range(len(self.freqs)):
+            self.jitter_t[i] += 0.02
+            if self.jitter_t[i] > self.jitter_per[i]:
+                self.jitter[i] = random.gauss(0, 0.15)
+                self.jitter_t[i] = 0.0
+            fj = self.freqs[i] + self.jitter[i]
+            val += self.weights[i] * math.sin(2 * math.pi * fj * t + self.phases[i])
+        return val * self.amp
+
+
+class BlinkGenerator:
+    """Realistic eye-blink artifact (Gaussian wavelet)."""
+    def __init__(self, rate=0.25):
+        self.rate = rate
+        self.next_t = random.expovariate(rate)
+        self.start_t = -1
+        self.peak_amp = 0
+
+    def sample(self, t):
+        if t >= self.next_t:
+            self.start_t = t
+            self.peak_amp = random.uniform(200, 600)
+            self.next_t = t + random.expovariate(self.rate)
+        if self.start_t >= 0:
+            dt = t - self.start_t
+            if dt < BLINK_DUR:
+                return self.peak_amp * math.exp(
+                    -((dt - BLINK_DUR / 2) ** 2) / (2 * (BLINK_DUR / 6) ** 2))
+            self.start_t = -1
+        return 0.0
+
+
+class MuscleNoise:
+    """Random high-frequency muscle artifact bursts."""
+    def __init__(self, prob=MUSCLE_PROB, amp=40):
+        self.prob = prob
+        self.amp = amp
+        self.remaining = 0
+        self.burst_len = 0
+
+    def sample(self):
+        if self.remaining > 0:
+            self.remaining -= 1
+            return random.gauss(0, self.amp)
+        if random.random() < self.prob:
+            self.burst_len = random.randint(5, 40)
+            self.remaining = self.burst_len
+            return random.gauss(0, self.amp)
+        return 0.0
+
+
+class LineNoise:
+    """Mains hum (50/60 Hz) with harmonics."""
+    def __init__(self, freq=50, amp=8):
+        self.freq = freq
+        self.amp = amp
+        self.harms = [(1, 1.0), (2, 0.25), (3, 0.08), (4, 0.03)]
+
+    def sample(self, t):
+        val = 0.0
+        for h, w in self.harms:
+            val += w * math.sin(2 * math.pi * self.freq * h * t + h * 0.7)
+        return val * self.amp
+
+
+class AlphaSpindle:
+    """
+    Simulates sleep-like alpha spindles — brief (0.5-2s) bursts
+    of waxing-and-waning alpha activity.
+    """
+    def __init__(self, prob=0.002):
+        self.prob = prob
+        self.active = False
+        self.t_start = 0
+        self.dur = 0
+        self.amp = 0
+
+    def sample(self, t, alpha_amp):
+        if not self.active and random.random() < self.prob:
+            self.active = True
+            self.t_start = t
+            self.dur = random.uniform(0.5, 2.0)
+            self.amp = random.uniform(2.0, 5.0)
+        if self.active:
+            dt = t - self.t_start
+            if dt < self.dur:
+                envelope = math.sin(math.pi * dt / self.dur)  # wax-wane
+                return alpha_amp * self.amp * envelope * math.sin(
+                    2 * math.pi * 12 * t)
+            self.active = False
+        return 0.0
+
+
 class EEGSimulator:
-    def __init__(self, state='relaxed', noise=0.08, blink_rate=0.25, line_freq=50, rate=50):
+    """
+    Professional EEG simulator producing realistic multi-band signals.
+    Combines: neural oscillators × 8 bands, pink noise, blinks,
+    muscle noise, line noise, alpha spindles.
+    """
+
+    def __init__(self, state='relaxed', noise=0.06, blink_rate=0.25, line_freq=50, rate=50):
         self.t = 0.0
         self.rate = rate
         self.dt = 1.0 / rate
         self.noise = noise
         self.line_freq = line_freq
+
         self.state = state
         self.profile = STATES[state].copy()
         self.target = self.profile.copy()
         self.transition_t = 1.0
-        self.transition_dur = 0.5
-        self.prev_state = state
+        self.transition_dur = 0.4
 
-        self.pink = [0.0] * PINK_NOISE_OCTAVES
-        self.pink_counts = [0] * PINK_NOISE_OCTAVES
-        self.pink_periods = [1 << i for i in range(PINK_NOISE_OCTAVES)]
-        self.phases = {b: random.random() * 2 * math.pi for b in BAND_NAMES}
-        self.osc_amps = {b: random.uniform(0.5, 1.5) for b in BAND_NAMES}
-        self.next_blink = random.expovariate(blink_rate)
-        self.blink_active = False
-        self.blink_val = 0
-        self.last_blink_strength = 0
+        self.pink = PinkNoise()
+        self.oscillators = {}
+        for name, (lo, hi) in BANDS.items():
+            self.oscillators[name] = NeuralOscillator(name, lo, hi)
+        self.blinks = BlinkGenerator(rate=blink_rate)
+        self.muscle = MuscleNoise()
+        self.line = LineNoise(freq=line_freq)
+        self.spindle = AlphaSpindle()
 
         self.servo_angles = list(SERVO_OPEN)
         self.servo_targets = list(SERVO_OPEN)
         self.history = []
 
-        self.sse_clients = []
+        self._apply_profile()
+        print(f"[Sim] Initialized: {state} (rate={rate}Hz)")
+
+    def _apply_profile(self):
+        p = self.profile
+        total = sum(p.get(b, 0) for b in BAND_NAMES) or 1.0
+        for name in BAND_NAMES:
+            norm = p.get(name, 0) / total
+            self.oscillators[name].set_amplitude(norm * 1.5)
+            if 'alpha' in name:
+                self.oscillators[name].alpha_peak = p.get('alpha_peak', 10.0)
+                self.oscillators[name].alpha_width = p.get('alpha_width', 1.0)
 
     def set_state(self, name):
         if name in STATES and name != self.state:
-            self.prev_state = self.state
             self.state = name
             self.target = STATES[name].copy()
             self.profile = STATES[name].copy()
             self.transition_t = 1.0
-            print(f"\n=== STATE CHANGED: {name} ===")
-            print(f"  attention={self.profile['attention']}, meditation={self.profile['meditation']}")
-            for b in BAND_NAMES:
-                print(f"  {b}={self.profile[b]}")
+            self._apply_profile()
             return True
         return False
 
-    def pink_noise(self):
-        val = 0.0
-        for i in range(PINK_NOISE_OCTAVES):
-            self.pink_counts[i] += 1
-            if self.pink_counts[i] >= self.pink_periods[i]:
-                self.pink[i] = random.random() * 2 - 1
-                self.pink_counts[i] = 0
-            val += self.pink[i]
-        return val / PINK_NOISE_OCTAVES
-
-    def blink(self):
-        if not self.blink_active and self.t >= self.next_blink:
-            self.blink_active = True
-            self.blink_t = self.t
-            self.blink_amp = random.uniform(200, 500)
-            self.next_blink = self.t + random.expovariate(self.blink_rate)
-            return 0.0
-        if self.blink_active:
-            dt = self.t - self.blink_t
-            if dt < BLINK_DURATION:
-                v = self.blink_amp * math.exp(-((dt - 0.075)**2) / (2 * (0.025)**2))
-                return v
-            self.blink_active = False
-        return 0.0
-
-    def update_servos(self, att, med):
-        grip = 0
-        if att > 55: grip = 100
-        elif att > 30: grip = (att - 30) * 100 // 25
-        for i in range(5):
-            self.servo_targets[i] = SERVO_OPEN[i] + (SERVO_CLOSE[i] - SERVO_OPEN[i]) * grip // 100
-        for i in range(5):
-            diff = self.servo_targets[i] - self.servo_angles[i]
-            self.servo_angles[i] += diff * 0.15 + random.gauss(0, 0.5)
-            self.servo_angles[i] = max(0, min(180, self.servo_angles[i]))
-
     def step(self):
         self.t += self.dt
+        p = self.profile
+        total_power = sum(p.get(b, 0) for b in BAND_NAMES) or 1.0
 
-        if self.transition_t < 1.0:
-            self.transition_t += self.dt / self.transition_dur
-            if self.transition_t >= 1.0:
-                self.profile = self.target.copy()
-            else:
-                s = self.transition_t * self.transition_t * (3 - 2 * self.transition_t)
-                base_state = STATES.get(self.prev_state, STATES['relaxed'])
-                for k in self.profile:
-                    if k in ('attention', 'meditation'):
-                        base = base_state.get(k, 50)
-                        self.profile[k] = base + (self.target[k] - base) * s
-                    elif k in BANDS:
-                        base = base_state.get(k, 0.05)
-                        self.profile[k] = base + (self.target[k] - base) * s
-
+        # Generate raw EEG: oscillators + pink noise + artifacts
         raw = 0.0
         band_powers = {}
-        for i, b in enumerate(BAND_NAMES):
-            amp = self.profile.get(b, 0.05) * 500
-            raw += amp * math.sin(2 * math.pi * (3 + i * 5) * self.t + self.phases[b])
-            band_powers[b] = max(1, int(amp * 200 * (0.95 + 0.1 * random.random())))
+        for b in BAND_NAMES:
+            norm = p.get(b, 0) / total_power
+            osc_amp = norm * 500
+            raw += self.oscillators[b].sample(self.t) * osc_amp / (len(BAND_NAMES) ** 0.5)
+            band_powers[b] = int(norm * BASE_POWER * (0.92 + 0.16 * random.random()))
 
-        raw += self.pink_noise() * 20 * self.noise
-        bv = self.blink()
-        raw += bv
+        raw += self.pink.sample() * 30 * self.noise
+        raw += self.blinks.sample(self.t)
+        raw += self.muscle.sample()
+        raw += self.line.sample(self.t)
+        raw += self.spindle.sample(self.t, p.get('low_alpha', 0) * 200)
         raw = max(-32768, min(32767, int(raw)))
 
-        att = max(0, min(100, self.profile.get('attention', 50) + random.gauss(0, 4)))
-        med = max(0, min(100, self.profile.get('meditation', 50) + random.gauss(0, 4)))
-        blink_out = int(abs(bv)) if abs(bv) > 30 else 0
+        # Derive attention/meditation from spectral state + noise
+        base_att = p.get('attention', 50)
+        base_med = p.get('meditation', 50)
+        att_drift = math.sin(self.t * 0.05) * 3 + random.gauss(0, 3)
+        med_drift = math.cos(self.t * 0.04) * 3 + random.gauss(0, 3)
+        att = max(0, min(100, base_att + att_drift))
+        med = max(0, min(100, base_med + med_drift))
+
+        blink_out = int(self.blinks.peak_amp) if (
+            self.blinks.start_t >= 0 and
+            self.t - self.blinks.start_t < BLINK_DUR / 2
+        ) else 0
+        blink_out = min(255, blink_out)
+
         poor = 0 if self.noise < 0.3 else int(self.noise * 50)
 
-        self.last_blink_strength = blink_out
-        self.update_servos(att, med)
+        self.servo_angles = self._update_servos(att, med)
 
-        alpha = band_powers['low_alpha'] + band_powers['high_alpha']
-        beta = band_powers['low_beta'] + band_powers['high_beta']
-        theta = band_powers['theta']
-        gamma = band_powers['low_gamma'] + band_powers['high_gamma']
+        la = band_powers['low_alpha']
+        ha = band_powers['high_alpha']
+        lb = band_powers['low_beta']
+        hb = band_powers['high_beta']
+        lg = band_powers['low_gamma']
+        hg = band_powers['high_gamma']
+        total = la + ha + lb + hb + lg + hg + band_powers['delta'] + band_powers['theta']
 
         data = {
             't': round(self.t, 3),
             'attention': int(att),
             'meditation': int(med),
-            'blink': min(255, blink_out),
-            'signal_quality': max(0, 100 - poor * 10),
-            'raw_wave': int(raw),
+            'blink': blink_out,
+            'signal_quality': max(0, 100 - poor * 2),
+            'raw_wave': raw,
             'band_powers': {b: band_powers[b] for b in BAND_NAMES},
-            'alpha_beta_ratio': round(alpha / beta, 3) if beta > 0 else 0,
-            'theta_gamma_ratio': round(theta / gamma, 3) if gamma > 0 else 0,
+            'alpha_beta_ratio': round((la + ha) / (lb + hb + 1), 3),
+            'theta_gamma_ratio': round(band_powers['theta'] / (lg + hg + 1), 3),
             'att_med_ratio': round(att / (med + 1), 3),
             'servos': [round(a, 1) for a in self.servo_angles],
             'state': self.state,
@@ -188,6 +348,20 @@ class EEGSimulator:
         if len(self.history) > 5000:
             self.history = self.history[-5000:]
         return data
+
+    def _update_servos(self, att, med):
+        grip = 0
+        if att > 55:
+            grip = 100
+        elif att > 25:
+            grip = (att - 25) * 100 // 30
+        angles = list(self.servo_angles)
+        for i in range(5):
+            tgt = SERVO_OPEN[i] + (SERVO_CLOSE[i] - SERVO_OPEN[i]) * grip // 100
+            diff = tgt - angles[i]
+            angles[i] += diff * 0.2 + random.gauss(0, 0.3)
+            angles[i] = max(0, min(180, angles[i]))
+        return angles
 
 
 # ── Global Simulator ──────────────────────────────────────────────────
@@ -199,7 +373,6 @@ sim_running = True
 def simulation_thread():
     global sim_running
     while sim_running:
-        before = sim.profile.get('attention', -1)
         sim.step()
         time.sleep(1.0 / sim.rate)
 
