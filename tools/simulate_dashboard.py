@@ -470,245 +470,239 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Axis — EEG Simulation</title>
+<title>Axis EEG</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; background: #0d1117; color: #c9d1d9; padding: 20px; }
+body { font-family: -apple-system, 'Helvetica Neue', sans-serif; background: #f5f5f5; color: #333; padding: 24px; }
 
-.toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
-.toolbar h1 { color: #58a6ff; font-size: 18px; font-weight: 600; letter-spacing: -0.5px; }
-.toolbar .sep { color: #30363d; font-size: 18px; }
-.toolbar .info { font-size: 12px; color: #8b949e; }
-.toolbar .spacer { flex: 1; }
-.toolbar select, .toolbar button { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; }
-.toolbar select:hover, .toolbar button:hover { border-color: #8b949e; }
-.toolbar button { background: #238636; border-color: #238636; color: #fff; font-weight: 500; }
-.toolbar button:hover { background: #2ea043; }
+.top { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
+.top h1 { font-size: 16px; font-weight: 600; color: #222; letter-spacing: -0.3px; }
+.top .sep { color: #ccc; }
+.top .badge { font-size: 13px; color: #555; }
+.top .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.top select { background: #fff; border: 1px solid #ddd; padding: 4px 8px; border-radius: 4px; font-size: 12px; color: #333; cursor: pointer; }
+.top select:hover { border-color: #aaa; }
+.top button { background: #fff; border: 1px solid #ddd; padding: 4px 12px; border-radius: 4px; font-size: 12px; color: #333; cursor: pointer; }
+.top button:hover { border-color: #aaa; background: #fafafa; }
 
-.metrics { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
-.metric { flex: 1; min-width: 110px; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 10px 14px; }
-.metric .lbl { font-size: 10px; text-transform: uppercase; color: #8b949e; letter-spacing: 0.5px; }
-.metric .val { font-size: 26px; font-weight: 600; margin: 2px 0; font-family: 'SF Mono', 'JetBrains Mono', monospace; }
-.metric .bar { height: 2px; border-radius: 1px; margin-top: 4px; transition: width 0.2s; }
+.row1 { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.mtr { flex: 1; min-width: 90px; background: #fff; border: 1px solid #e0e0e0; border-radius: 4px; padding: 8px 12px; }
+.mtr .l { font-size: 9px; color: #999; text-transform: uppercase; letter-spacing: 0.3px; }
+.mtr .v { font-size: 22px; font-weight: 500; color: #222; font-family: 'SF Mono', 'Menlo', monospace; }
+.mtr .b { height: 2px; background: #e0e0e0; margin-top: 4px; border-radius: 1px; overflow: hidden; }
+.mtr .b i { display: block; height: 100%; background: #666; border-radius: 1px; }
 
-.grid { display: grid; grid-template-columns: 3fr 2fr; gap: 12px; margin-bottom: 12px; }
-.grid-wide { grid-template-columns: 1fr; }
-.card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 14px; }
-.card h3 { color: #8b949e; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
-.card canvas { width: 100% !important; max-height: 210px; }
+.gr { display: grid; grid-template-columns: 3fr 2fr; gap: 12px; margin-bottom: 12px; }
+.gr2 { grid-template-columns: 1fr; }
+.cd { background: #fff; border: 1px solid #e0e0e0; border-radius: 4px; padding: 12px; }
+.cd h3 { font-size: 10px; font-weight: 600; color: #999; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+.cd canvas { width: 100% !important; max-height: 200px; }
 
-.row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
-.servo-area { display: flex; gap: 6px; justify-content: center; align-items: flex-end; height: 120px; padding: 8px 0; }
-.servo-c { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 44px; }
-.servo-c .bar { width: 24px; border-radius: 3px 3px 0 0; transition: height 0.2s; min-height: 3px; }
-.servo-c .nm { font-size: 8px; color: #8b949e; }
-.servo-c .deg { font-size: 10px; font-weight: 600; }
+.r3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.sv { display: flex; gap: 4px; justify-content: center; align-items: flex-end; height: 100px; }
+.sc { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 40px; }
+.sc .b { width: 20px; border-radius: 2px 2px 0 0; background: #888; min-height: 2px; }
+.sc .n { font-size: 8px; color: #999; }
+.sc .d { font-size: 10px; color: #555; font-weight: 500; font-family: 'SF Mono', monospace; }
 
-table.stat { width: 100%; font-size: 12px; border-collapse: collapse; }
-table.stat td { padding: 2px 6px; }
-table.stat .k { color: #8b949e; }
-table.stat .v { color: #c9d1d9; font-weight: 500; text-align: right; font-family: 'SF Mono', monospace; }
+table.st { width: 100%; font-size: 11px; border-collapse: collapse; }
+table.st td { padding: 2px 4px; }
+table.st .k { color: #999; }
+table.st .v { color: #333; text-align: right; font-family: 'SF Mono', monospace; }
+table.st tr:nth-child(even) { background: #fafafa; }
 
-.ratio-grid { display: flex; gap: 8px; flex-wrap: wrap; }
-.ratio-item { flex: 1; min-width: 80px; text-align: center; padding: 6px; }
-.ratio-item .rlbl { font-size: 9px; color: #8b949e; text-transform: uppercase; }
-.ratio-item .rval { font-size: 18px; font-weight: 600; }
+.rg { display: flex; gap: 4px; }
+.ri { flex: 1; text-align: center; padding: 6px 4px; background: #fafafa; border-radius: 3px; }
+.ri .rl { font-size: 8px; color: #999; text-transform: uppercase; }
+.ri .rv { font-size: 16px; font-weight: 500; color: #444; }
 
-@media (max-width: 800px) { .grid { grid-template-columns: 1fr; } .row3 { grid-template-columns: 1fr; } }
+@media (max-width: 700px) { .gr { grid-template-columns: 1fr; } .r3 { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
 
-<div class="toolbar">
+<div class="top">
   <h1>Axis</h1>
   <span class="sep">/</span>
-  <span style="font-size:13px;color:#c9d1d9" id="stateBadge">relaxed</span>
-  <span class="info" id="timeDisplay">0s</span>
-  <span class="spacer"></span>
-  <select id="stateSelect" onchange="setState(this.value)">
-    <option value="relaxed">Relaxed</option>
-    <option value="focused">Focused</option>
-    <option value="meditative">Meditative</option>
-    <option value="drowsy">Drowsy</option>
-    <option value="stressed">Stressed</option>
-    <option value="active">Active</option>
-  </select>
-  <select id="autoCycle" onchange="setAutoCycle(this.value)">
-    <option value="0">Static</option>
-    <option value="5">Cycle 5s</option>
-    <option value="10">Cycle 10s</option>
-    <option value="20">Cycle 20s</option>
-  </select>
-  <button onclick="resetStats()">Reset</button>
+  <span class="badge" id="stateBadge">relaxed</span>
+  <span style="font-size:11px;color:#999" id="timeDisplay">0s</span>
+  <div class="right">
+    <select id="stateSelect" onchange="setState(this.value)">
+      <option value="relaxed">Relaxed</option>
+      <option value="focused">Focused</option>
+      <option value="meditative">Meditative</option>
+      <option value="drowsy">Drowsy</option>
+      <option value="stressed">Stressed</option>
+      <option value="active">Active</option>
+    </select>
+    <select id="autoCycle" onchange="setAutoCycle(this.value)">
+      <option value="0">Static</option>
+      <option value="5">5s</option>
+      <option value="10">10s</option>
+      <option value="20">20s</option>
+    </select>
+    <button onclick="resetStats()">Reset</button>
+  </div>
 </div>
 
-<div class="metrics" id="metrics"></div>
+<div class="row1" id="mtrs"></div>
 
-<div class="grid">
-  <div class="card"><h3>Attention / Meditation</h3><canvas id="chartAttMed"></canvas></div>
-  <div class="card"><h3>Band Power</h3><canvas id="chartPie"></canvas></div>
+<div class="gr">
+  <div class="cd"><h3>Attention & Meditation</h3><canvas id="chartAttMed"></canvas></div>
+  <div class="cd"><h3>Band Distribution</h3><canvas id="chartPie"></canvas></div>
 </div>
 
-<div class="grid grid-wide">
-  <div class="card"><h3>EEG Frequency Bands</h3><canvas id="chartBands"></canvas></div>
+<div class="gr gr2">
+  <div class="cd"><h3>Frequency Bands</h3><canvas id="chartBands"></canvas></div>
 </div>
 
-<div class="row3">
-  <div class="card"><h3>Servo Positions</h3><div class="servo-area" id="servo-viz"></div></div>
-  <div class="card"><h3>Statistics</h3><table class="stat" id="statsTable"></table></div>
-  <div class="card"><h3>Ratios</h3>
-    <div class="ratio-grid">
-      <div class="ratio-item"><div class="rlbl">Alpha/Beta</div><div class="rval" id="rAb" style="color:#58a6ff">—</div></div>
-      <div class="ratio-item"><div class="rlbl">Theta/Gamma</div><div class="rval" id="rTg" style="color:#a5d6ff">—</div></div>
-      <div class="ratio-item"><div class="rlbl">Att/Med</div><div class="rval" id="rAm" style="color:#79c0ff">—</div></div>
-      <div class="ratio-item"><div class="rlbl">Signal</div><div class="rval" id="rSig" style="color:#7ee787">—</div></div>
+<div class="r3">
+  <div class="cd"><h3>Servos</h3><div class="sv" id="sv"></div></div>
+  <div class="cd"><h3>Stats</h3><table class="st" id="st"></table></div>
+  <div class="cd"><h3>Ratios</h3>
+    <div class="rg">
+      <div class="ri"><div class="rl">a/b</div><div class="rv" id="rAb">—</div></div>
+      <div class="ri"><div class="rl">t/g</div><div class="rv" id="rTg">—</div></div>
+      <div class="ri"><div class="rl">a/m</div><div class="rv" id="rAm">—</div></div>
+      <div class="ri"><div class="rl">sig</div><div class="rv" id="rSig">—</div></div>
     </div>
   </div>
 </div>
 
 <script>
-const BAND_COLORS = ['#ff6b6b','#ffa657','#d29922','#7ee787','#58a6ff','#a5d6ff','#bc8cff','#f778ba'];
-const SERVO_COLORS = ['#ff6b6b','#ffa657','#d29922','#58a6ff','#7ee787'];
-const BAND_NAMES = ['delta','theta','low_alpha','high_alpha','low_beta','high_beta','low_gamma','high_gamma'];
-const METRIC_KEYS = [
-  {key:'attention', label:'Attention', color:'#7ee787', max:100, unit:'%'},
-  {key:'meditation', label:'Meditation', color:'#58a6ff', max:100, unit:'%'},
-  {key:'blink', label:'Blink', color:'#f778ba', max:255, unit:''},
-  {key:'signal_quality', label:'Signal', color:'#d29922', max:100, unit:'%'},
-  {key:'raw_wave', label:'Raw EEG', color:'#bc8cff', max:100, unit:'uv'},
+const BCOL = ['#e74c3c','#e67e22','#f1c40f','#2ecc71','#3498db','#2980b9','#9b59b6','#e91e63'];
+const SCOL = ['#c0392b','#d35400','#f39c12','#2980b9','#27ae60'];
+const BN = ['delta','theta','low_alpha','high_alpha','low_beta','high_beta','low_gamma','high_gamma'];
+const MK = [
+  {k:'attention', l:'Att', m:100, u:'%'},
+  {k:'meditation', l:'Med', m:100, u:'%'},
+  {k:'blink', l:'Blink', m:255, u:''},
+  {k:'signal_quality', l:'Signal', m:100, u:'%'},
+  {k:'raw_wave', l:'EEG', m:100, u:'uv'},
 ];
+const SN = ['relaxed','focused','meditative','drowsy','stressed','active'];
 
-let charts = {};
-let history = [];
-const MAX_HISTORY = 300;
-let autoCycleTimer = null;
-const stateNames = ['relaxed','focused','meditative','drowsy','stressed','active'];
-let stateIdx = 0;
+let ch = {}, hx = [], act = null, si = 0;
 
-function initCharts() {
-  function chart(id, type, data, extra) {
-    return new Chart(document.getElementById(id), { type, data,
-      options: Object.assign({ responsive:true, maintainAspectRatio:false, animation:false,
-        interaction:{mode:'nearest',intersect:false},
-        plugins:{legend:{labels:{color:'#8b949e',font:{size:9},padding:8}}},
-        scales:{x:{ticks:{color:'#484f58',maxTicksLimit:8,font:{size:9}},grid:{color:'#21262d'}},
-                y:{ticks:{color:'#484f58',font:{size:9}},grid:{color:'#21262d'}}}
-      }, extra)
-    });
-  }
+function mkChart(id, type, data, extra) {
+  return new Chart(document.getElementById(id), {type, data,
+    options: Object.assign({responsive:true, maintainAspectRatio:false, animation:false,
+      interaction:{mode:'nearest',intersect:false},
+      plugins:{legend:{labels:{color:'#999',font:{size:9}}}},
+      scales:{x:{ticks:{color:'#bbb',maxTicksLimit:8,font:{size:8}},grid:{color:'#eee'}},
+              y:{ticks:{color:'#bbb',font:{size:8}},grid:{color:'#eee'}}}
+    }, extra)
+  });
+}
 
-  charts.attMed = chart('chartAttMed', 'line', {
+function initCh() {
+  ch.att = mkChart('chartAttMed', 'line', {
     labels:[], datasets:[
-      {label:'Attention', data:[], borderColor:'#7ee787', backgroundColor:'rgba(126,231,135,0.08)', fill:true, tension:0.3, pointRadius:0},
-      {label:'Meditation', data:[], borderColor:'#58a6ff', backgroundColor:'rgba(88,166,255,0.08)', fill:true, tension:0.3, pointRadius:0},
-      {label:'Blink', data:[], borderColor:'#f778ba', backgroundColor:'rgba(247,120,186,0.04)', fill:true, tension:0.1, pointRadius:0},
+      {label:'Att', data:[], borderColor:'#333', backgroundColor:'rgba(0,0,0,0.04)', fill:true, tension:0.3, pointRadius:0},
+      {label:'Med', data:[], borderColor:'#888', backgroundColor:'rgba(0,0,0,0.03)', fill:true, tension:0.3, pointRadius:0},
+      {label:'Blink', data:[], borderColor:'#ccc', fill:false, tension:0.1, pointRadius:0},
     ]
   }, {scales:{y:{min:0,max:100}}});
 
-  charts.pie = chart('chartPie', 'doughnut', {
-    labels:BAND_NAMES,
-    datasets:[{data:BAND_NAMES.map(()=>0), backgroundColor:BAND_COLORS}]
-  }, {cutout:'55%', plugins:{legend:{position:'right',labels:{color:'#8b949e',font:{size:8}}}}});
+  ch.pie = mkChart('chartPie', 'doughnut', {
+    labels:BN, datasets:[{data:BN.map(()=>0), backgroundColor:BCOL}]
+  }, {cutout:'60%', plugins:{legend:{position:'right',labels:{color:'#999',font:{size:8}}}}});
 
-  charts.bands = chart('chartBands', 'line', {
-    labels:[], datasets:BAND_NAMES.map((b,i)=>({label:b, data:[], borderColor:BAND_COLORS[i], fill:false, tension:0.3, pointRadius:0}))
+  ch.band = mkChart('chartBands', 'line', {
+    labels:[], datasets:BN.map((b,i)=>({label:b, data:[], borderColor:BCOL[i], fill:false, tension:0.3, pointRadius:0}))
   }, {scales:{y:{type:'logarithmic',min:1}}});
 }
 
-function updateMetrics(data) {
-  document.getElementById('metrics').innerHTML =
-    METRIC_KEYS.map(m => {
-      const v = data[m.key] || 0;
-      return `<div class="metric"><div class="lbl">${m.label}</div><div class="val" style="color:${m.color}">${v}</div><div class="bar" style="width:${(v/m.max*100).toFixed(0)}%;background:${m.color}"></div></div>`;
+function updM(d) {
+  document.getElementById('mtrs').innerHTML =
+    MK.map(m => {
+      const v = d[m.k] || 0;
+      return `<div class="mtr"><div class="l">${m.l}</div><div class="v">${v}${m.u}</div><div class="b"><i style="width:${(v/m.m*100).toFixed(0)}%"></i></div></div>`;
     }).join('') +
-    `<div class="metric"><div class="lbl">State</div><div class="val" style="color:#d29922;font-size:20px">${data.state||'?'}</div><div style="font-size:9px;color:#8b949e">${data.state_desc||''}</div></div>`;
+    `<div class="mtr"><div class="l">State</div><div class="v" style="font-size:18px;color:#333">${d.state||'?'}</div><div style="font-size:8px;color:#999">${d.state_desc||''}</div></div>`;
 }
 
-function updateServos(data) {
-  const s = data.servos || [0,0,0,0,0];
-  const names = ['Thumb','Idx','Mid','Ring','Pinky'];
-  document.getElementById('servo-viz').innerHTML = s.map((v,i) =>
-    `<div class="servo-c"><div class="bar" style="height:${Math.max(3,v/180*100)}px;background:${SERVO_COLORS[i]}"></div><div class="deg">${v.toFixed(0)}</div><div class="nm">${names[i]}</div></div>`
+function updS(d) {
+  const s = d.servos || [0,0,0,0,0];
+  const nm = ['Th','Ix','Md','Ri','Pi'];
+  document.getElementById('sv').innerHTML = s.map((v,i) =>
+    `<div class="sc"><div class="b" style="height:${Math.max(2,v/180*85)}px;background:${SCOL[i]}"></div><div class="d">${v.toFixed(0)}</div><div class="n">${nm[i]}</div></div>`
   ).join('');
 }
 
-function updateStats(data) {
-  const s = data || {};
-  document.getElementById('statsTable').innerHTML =
-    `<tr><td></td><td class="v">Avg</td><td class="v">Max</td></tr>` +
-    [['Attention',s.attention?.avg],['Meditation',s.meditation?.avg],['Blinks',s.blink?.count]].map(([l,a]) =>
+function updSt(d) {
+  const s = d || {};
+  document.getElementById('st').innerHTML =
+    [['Att', s.attention?.avg], ['Med', s.meditation?.avg], ['Blinks', s.blink?.count]].map(([l,a]) =>
       `<tr><td class="k">${l}</td><td class="v">${a||'—'}</td><td class="v">${l==='Blinks'?s.blink?.max||'—':s[l.toLowerCase()]?.max||'—'}</td></tr>`
     ).join('') +
     `<tr><td class="k">Samples</td><td class="v" colspan="2">${s.samples||0}</td></tr>` +
     `<tr><td class="k">Uptime</td><td class="v" colspan="2">${(s.uptime||0).toFixed(1)}s</td></tr>`;
 }
 
-function updateRatios(data) {
-  document.getElementById('rAb').textContent = data.alpha_beta_ratio || '—';
-  document.getElementById('rTg').textContent = data.theta_gamma_ratio || '—';
-  document.getElementById('rAm').textContent = data.att_med_ratio || '—';
-  document.getElementById('rSig').textContent = (data.signal_quality || 0) + '%';
+function updR(d) {
+  document.getElementById('rAb').textContent = d.alpha_beta_ratio || '—';
+  document.getElementById('rTg').textContent = d.theta_gamma_ratio || '—';
+  document.getElementById('rAm').textContent = d.att_med_ratio || '—';
+  document.getElementById('rSig').textContent = (d.signal_quality || 0) + '%';
 }
 
-function updateCharts(data) {
-  history.push(data);
-  if (history.length > MAX_HISTORY) history.shift();
-  const labels = history.map(d => d.t.toFixed(1));
-  if (!charts.attMed) initCharts();
+function updC(d) {
+  hx.push(d);
+  if (hx.length > 300) hx.shift();
+  const lb = hx.map(x => x.t.toFixed(1));
+  if (!ch.att) initCh();
 
-  charts.attMed.data.labels = labels;
-  charts.attMed.data.datasets[0].data = history.map(d => d.attention);
-  charts.attMed.data.datasets[1].data = history.map(d => d.meditation);
-  charts.attMed.data.datasets[2].data = history.map(d => d.blink);
-  charts.attMed.update('none');
+  ch.att.data.labels = lb;
+  ch.att.data.datasets[0].data = hx.map(x => x.attention);
+  ch.att.data.datasets[1].data = hx.map(x => x.meditation);
+  ch.att.data.datasets[2].data = hx.map(x => x.blink);
+  ch.att.update('none');
 
-  const last = history[history.length - 1];
+  const last = hx[hx.length - 1];
   const bp = last ? last.band_powers : {};
-  const pieVals = BAND_NAMES.map(b => bp[b] || 1);
-  const total = pieVals.reduce((a, b) => a + b, 0);
-  charts.pie.data.datasets[0].data = pieVals;
-  charts.pie.data.labels = BAND_NAMES.map((b, i) => b + ' ' + (total > 0 ? (pieVals[i]/total*100).toFixed(1) : 0) + '%');
-  charts.pie.update('none');
+  const pv = BN.map(b => bp[b] || 1);
+  const tt = pv.reduce((a,b) => a+b, 0);
+  ch.pie.data.datasets[0].data = pv;
+  ch.pie.data.labels = BN.map((b,i) => b + ' ' + (tt > 0 ? (pv[i]/tt*100).toFixed(1) : 0) + '%');
+  ch.pie.update('none');
 
-  charts.bands.data.labels = labels;
-  BAND_NAMES.forEach((b, i) => { charts.bands.data.datasets[i].data = history.map(d => Math.max(1, (d.band_powers||{})[b] || 1)); });
-  charts.bands.update('none');
+  ch.band.data.labels = lb;
+  BN.forEach((b,i) => { ch.band.data.datasets[i].data = hx.map(x => Math.max(1, (x.band_powers||{})[b] || 1)); });
+  ch.band.update('none');
 }
 
 async function poll() {
   try {
     const r = await fetch('/api/latest');
-    const data = await r.json();
-    document.getElementById('stateBadge').textContent = data.state || '?';
-    document.getElementById('timeDisplay').textContent = (data.t || 0).toFixed(1) + 's';
-    updateMetrics(data);
-    updateServos(data);
-    updateRatios(data);
-    updateCharts(data);
+    const d = await r.json();
+    document.getElementById('stateBadge').textContent = d.state || '?';
+    document.getElementById('timeDisplay').textContent = (d.t || 0).toFixed(1) + 's';
+    updM(d); updS(d); updR(d); updC(d);
     const r2 = await fetch('/api/stats');
-    updateStats(await r2.json());
+    updSt(await r2.json());
   } catch(e) {}
 }
 
-function setState(name) {
-  document.getElementById('stateSelect').value = name;
-  document.getElementById('stateBadge').textContent = name;
-  fetch('/api/state?name=' + name);
+function setState(n) {
+  document.getElementById('stateSelect').value = n;
+  document.getElementById('stateBadge').textContent = n;
+  fetch('/api/state?name=' + n);
 }
 
-function setAutoCycle(secs) {
-  if (autoCycleTimer) { clearInterval(autoCycleTimer); autoCycleTimer = null; }
-  if (secs > 0) autoCycleTimer = setInterval(() => {
+function setAutoCycle(s) {
+  if (act) { clearInterval(act); act = null; }
+  if (s > 0) act = setInterval(() => {
     const cur = document.getElementById('stateSelect').value;
-    stateIdx = (stateNames.indexOf(cur) + 1) % stateNames.length;
-    setState(stateNames[stateIdx]);
-  }, secs * 1000);
+    si = (SN.indexOf(cur) + 1) % SN.length;
+    setState(SN[si]);
+  }, s * 1000);
 }
 
-function resetStats() { history = []; Object.values(charts).forEach(c => c.destroy()); charts = {}; }
+function resetStats() { hx = []; Object.values(ch).forEach(c => c.destroy()); ch = {}; }
 
-initCharts();
+initCh();
 poll();
 setInterval(poll, 350);
 </script>
